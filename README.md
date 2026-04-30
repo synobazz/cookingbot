@@ -2,6 +2,21 @@
 
 Private Kochhilfe für Wochenplanung mit Paprika-3-Rezepten, LLM-Vorschlägen und Einkaufsliste.
 
+
+## Screenshots
+
+Die Screenshots nutzen Demo-Daten, damit die UI im Repository schnell einschätzbar ist.
+
+![Login](docs/screenshots/01-login.png)
+
+![Dashboard](docs/screenshots/02-dashboard.png)
+
+![Rezepte](docs/screenshots/03-recipes.png)
+
+![Wochenplan](docs/screenshots/04-planner.png)
+
+![Einkaufsliste](docs/screenshots/05-shopping.png)
+
 ## V1-Ziel
 
 - Paprika Cloud Sync über die inoffizielle/experimentelle API
