@@ -30,7 +30,7 @@ Die Screenshots nutzen Demo-Daten, damit die UI im Repository schnell einschätz
 
 ## V2-Ideen
 
-- Export/Sync der Einkaufsliste nach Microsoft Todo
+- feinere Microsoft-To-Do-Sync-Optionen (z.B. bidirektionaler Statusabgleich)
 - Remix-Rezepte direkt zu Paprika hinzufügen
 - feinere Familien-/Zykluslogik
 - bessere Zutaten-Normalisierung und Mengenaggregation
@@ -41,6 +41,7 @@ Die Screenshots nutzen Demo-Daten, damit die UI im Repository schnell einschätz
 - Docker + Docker Compose oder Portainer
 - Paprika-Cloud-Zugangsdaten
 - OpenAI-kompatibler API-Key (`OPENAI_API_KEY`)
+- für Microsoft To Do: Microsoft-Entra-App mit Redirect URI `${APP_BASE_URL}/api/microsoft/callback`
 - ein eigenes starkes Login-Passwort für cookingbot
 - ein langes zufälliges Session-Secret, z.B.:
 
@@ -95,6 +96,9 @@ OPENAI_BASE_URL=
 PAPRIKA_EMAIL=<paprika-email>
 PAPRIKA_PASSWORD=<paprika-passwort>
 PAPRIKA_API_BASE=https://www.paprikaapp.com/api
+MICROSOFT_CLIENT_ID=<client-id>
+MICROSOFT_CLIENT_SECRET=<client-secret>
+MICROSOFT_TENANT_ID=consumers
 ```
 
 7. Stack deployen.
@@ -144,6 +148,9 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4o-mini
 PAPRIKA_EMAIL=...
 PAPRIKA_PASSWORD=...
+MICROSOFT_CLIENT_ID=...
+MICROSOFT_CLIENT_SECRET=...
+MICROSOFT_TENANT_ID=consumers
 ```
 
 In Production startet cookingbot nicht mit den Default-Werten `change-me` oder zu kurzen Secrets/Passwörtern.
@@ -157,6 +164,39 @@ In Production startet cookingbot nicht mit den Default-Werten `change-me` oder z
 5. Aus dem Plan eine Einkaufsliste erstellen.
 
 Der erste Paprika-Sync und die erste KI-Planung können je nach Rezeptmenge etwas dauern.
+
+
+## Microsoft To Do Export
+
+cookingbot kann Einkaufspunkte direkt als Aufgaben in eine Microsoft-To-Do-Liste schreiben. Dafür wird Microsoft Graph mit delegierter Berechtigung genutzt.
+
+### Microsoft App registrieren
+
+1. Im Microsoft Entra Admin Center oder Azure Portal eine neue App Registration erstellen.
+2. Supported account types: für private Microsoft-Konten `Personal Microsoft accounts only` oder alternativ `Accounts in any organizational directory and personal Microsoft accounts`.
+3. Redirect URI als Web Redirect setzen:
+
+```text
+https://deine-cookingbot-domain.example/api/microsoft/callback
+```
+
+Für lokale Tests entsprechend:
+
+```text
+http://localhost:3000/api/microsoft/callback
+```
+
+4. Client Secret erstellen.
+5. API permissions hinzufügen: Microsoft Graph → Delegated permissions → `Tasks.ReadWrite` und `User.Read`.
+6. ENV-Werte in Portainer setzen:
+
+```env
+MICROSOFT_CLIENT_ID=...
+MICROSOFT_CLIENT_SECRET=...
+MICROSOFT_TENANT_ID=consumers
+```
+
+Danach in cookingbot unter **Einkauf** auf **Microsoft To Do verbinden** klicken, einloggen und pro Einkaufsliste die gewünschte To-Do-Liste auswählen. Bereits exportierte Einkaufspunkte werden nicht erneut gesendet.
 
 ## Paprika API Notizen
 
@@ -174,4 +214,5 @@ Schreibzugriffe zu Paprika bleiben für V1 bewusst aus. Remixe werden erst lokal
 - **Container startet nicht:** Logs in Portainer prüfen. Häufig fehlen `APP_SESSION_SECRET`, `APP_ADMIN_PASSWORD` oder `DATABASE_URL`.
 - **Paprika-Sync schlägt fehl:** Paprika-Zugangsdaten prüfen; die API ist inoffiziell und kann sich ändern.
 - **KI-Planung schlägt fehl:** `OPENAI_API_KEY`, Modellname und ggf. `OPENAI_BASE_URL` prüfen.
+- **Microsoft-Verbindung schlägt fehl:** Redirect URI in der Microsoft App muss exakt `${APP_BASE_URL}/api/microsoft/callback` entsprechen; `MICROSOFT_CLIENT_ID` und `MICROSOFT_CLIENT_SECRET` prüfen.
 - **Daten weg nach Redeploy:** Volume `cookingbot-data` prüfen; ohne persistentes Volume wird die SQLite-DB gelöscht.

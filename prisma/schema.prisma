@@ -36,57 +36,75 @@ model Recipe {
 }
 
 model MealPlan {
-  id          String     @id @default(cuid())
-  title       String
-  startsOn    DateTime
-  daysJson    String     @default("[]")
-  people      Float      @default(2.5)
-  status      String     @default("draft")
-  llmNotes    String?    @default("")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  items       MealItem[]
+  id           String        @id @default(cuid())
+  title        String
+  startsOn     DateTime
+  daysJson     String        @default("[]")
+  people       Float         @default(2.5)
+  status       String        @default("draft")
+  llmNotes     String?       @default("")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  items        MealItem[]
   shoppingList ShoppingList?
 }
 
 model MealItem {
-  id            String   @id @default(cuid())
-  mealPlanId    String
-  mealPlan      MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-  date          DateTime
-  dayName       String
-  title         String
-  type          String   @default("dinner")
-  recipeId      String?
-  recipe        Recipe?  @relation(fields: [recipeId], references: [id])
-  isRemix       Boolean  @default(false)
-  remixSource   String?  @default("")
-  reasoning     String?  @default("")
-  ingredients   String   @default("")
-  instructions  String   @default("")
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  mealPlanId   String
+  mealPlan     MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  date         DateTime
+  dayName      String
+  title        String
+  type         String   @default("dinner")
+  recipeId     String?
+  recipe       Recipe?  @relation(fields: [recipeId], references: [id])
+  isRemix      Boolean  @default(false)
+  remixSource  String?  @default("")
+  reasoning    String?  @default("")
+  ingredients  String   @default("")
+  instructions String   @default("")
+  createdAt    DateTime @default(now())
 }
 
 model ShoppingList {
-  id          String             @id @default(cuid())
-  mealPlanId  String             @unique
-  mealPlan    MealPlan           @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-  title       String
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  items       ShoppingListItem[]
+  id                 String             @id @default(cuid())
+  mealPlanId         String             @unique
+  mealPlan           MealPlan           @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  title              String
+  microsoftListId    String?            @default("")
+  microsoftListName  String?            @default("")
+  lastMicrosoftSyncAt DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  items              ShoppingListItem[]
 }
 
 model ShoppingListItem {
-  id             String       @id @default(cuid())
-  shoppingListId String
-  shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
-  name           String
-  quantity       String?      @default("")
-  category       String?      @default("")
-  checked        Boolean      @default(false)
-  source         String?      @default("")
-  order          Int          @default(0)
+  id                String       @id @default(cuid())
+  shoppingListId    String
+  shoppingList      ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  name              String
+  quantity          String?      @default("")
+  category          String?      @default("")
+  checked           Boolean      @default(false)
+  source            String?      @default("")
+  order             Int          @default(0)
+  microsoftTaskId   String?      @default("")
+  microsoftTaskUrl  String?      @default("")
+  microsoftSyncedAt DateTime?
+}
+
+model MicrosoftConnection {
+  id                    String   @id @default("default")
+  accountName           String?  @default("")
+  accountEmail          String?  @default("")
+  encryptedAccessToken  String
+  encryptedRefreshToken String
+  expiresAt             DateTime
+  scopes                String   @default("")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model AppSetting {
