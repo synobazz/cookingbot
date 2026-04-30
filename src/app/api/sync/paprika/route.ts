@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
     await prisma.appSetting.upsert({ where: { key: "lastPaprikaSync" }, create: { key: "lastPaprikaSync", value: new Date().toISOString() }, update: { value: new Date().toISOString() } });
     return NextResponse.redirect(new URL(`/recipes?synced=${upserted}&listed=${result.listed}`, req.url), 303);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Sync failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Sync failed";
+    return NextResponse.redirect(new URL(`/recipes?error=${encodeURIComponent(message)}`, req.url), 303);
   }
 }

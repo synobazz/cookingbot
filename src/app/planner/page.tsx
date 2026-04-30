@@ -2,13 +2,15 @@ import { redirect } from "next/navigation";
 import { addDays, format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
+import { dayLabel } from "@/lib/planning";
 
 const days = [
   ["monday", "Mo"], ["tuesday", "Di"], ["wednesday", "Mi"], ["thursday", "Do"], ["friday", "Fr"], ["saturday", "Sa"], ["sunday", "So"],
 ];
 
-export default async function PlannerPage() {
+export default async function PlannerPage({ searchParams }: { searchParams: Promise<{ error?: string; plan?: string; today?: string }> }) {
   if (!(await requireAuth())) redirect("/login");
+  const params = await searchParams;
   const plans = await prisma.mealPlan.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { items: true } });
   const nextMonday = addDays(new Date(), (8 - new Date().getDay()) % 7 || 7);
   return (
@@ -16,6 +18,8 @@ export default async function PlannerPage() {
       <section className="card">
         <div className="eyebrow">LLM Wochenplanung</div>
         <h1>Plan generieren</h1>
+        {params.error ? <p style={{ color: "#b91c1c" }}>Plan konnte nicht erzeugt werden: {decodeURIComponent(params.error)}</p> : null}
+        <p className="muted">Die KI-Planung kann je nach Rezeptmenge 1–2 Minuten dauern.</p>
         <form className="form" method="post" action="/api/plan/generate">
           <div className="grid cols-2">
             <label><div className="label">Startdatum</div><input className="input" name="start" type="date" defaultValue={format(nextMonday, "yyyy-MM-dd")} /></label>
@@ -38,7 +42,7 @@ export default async function PlannerPage() {
             <div className="eyebrow">{format(plan.startsOn, "dd.MM.yyyy")}</div>
             <h2>{plan.title}</h2>
             <div className="grid cols-3">
-              {plan.items.map((item) => <div className="card tight meal" key={item.id}><span className="badge">{item.dayName}</span><h3>{item.title}</h3><p>{item.reasoning}</p></div>)}
+              {plan.items.map((item) => <div className="card tight meal" key={item.id}><span className="badge">{dayLabel(item.dayName)}</span><h3>{item.title}</h3><p>{item.reasoning}</p></div>)}
             </div>
             <form action="/api/shopping/generate" method="post" style={{ marginTop: 16 }}>
               <input type="hidden" name="planId" value={plan.id} />

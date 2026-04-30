@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { seasonForDate } from "@/lib/planning";
+import { dayLabel, seasonLabel } from "@/lib/planning";
 
 export default async function HomePage() {
   if (!(await requireAuth())) redirect("/login");
@@ -16,7 +16,7 @@ export default async function HomePage() {
     <div className="grid">
       <section className="hero">
         <div className="card">
-          <div className="eyebrow">Heute ist {seasonForDate(new Date())}</div>
+          <div className="eyebrow">Aktuelle Saison: {seasonLabel(new Date())}</div>
           <h1>Was essen wir diese Woche?</h1>
           <p>Plane 7 Abendessen für 2 Erwachsene und ein Kind, saisonal gedacht, aus deinen Paprika-Rezepten — mit Platz für clevere Remixe.</p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
@@ -39,7 +39,7 @@ export default async function HomePage() {
           <div className="grid cols-3">
             {latestPlan.items.map((item) => (
               <div className="card tight meal" key={item.id}>
-                <span className="badge">{item.dayName}</span>
+                <span className="badge">{dayLabel(item.dayName)}</span>
                 <h3>{item.title}</h3>
                 <p>{item.reasoning || (item.isRemix ? "Remix" : "Paprika-Rezept")}</p>
               </div>

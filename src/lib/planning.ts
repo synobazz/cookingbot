@@ -3,12 +3,39 @@ import { Recipe } from "@prisma/client";
 
 export const defaultDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
+const seasonMap = {
+  winter: "Winter",
+  spring: "Frühling",
+  summer: "Sommer",
+  autumn: "Herbst",
+} as const;
+
+const dayMap: Record<string, string> = {
+  monday: "Montag",
+  tuesday: "Dienstag",
+  wednesday: "Mittwoch",
+  thursday: "Donnerstag",
+  friday: "Freitag",
+  saturday: "Samstag",
+  sunday: "Sonntag",
+  today: "Heute",
+  heute: "Heute",
+};
+
 export function seasonForDate(date = new Date()) {
   const month = date.getMonth() + 1;
   if ([12, 1, 2].includes(month)) return "winter";
   if ([3, 4, 5].includes(month)) return "spring";
   if ([6, 7, 8].includes(month)) return "summer";
   return "autumn";
+}
+
+export function seasonLabel(date = new Date()) {
+  return seasonMap[seasonForDate(date)];
+}
+
+export function dayLabel(day: string) {
+  return dayMap[day.toLowerCase()] || day;
 }
 
 export function buildPlanningDates(start: Date, days: string[]) {
