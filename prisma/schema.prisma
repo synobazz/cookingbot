@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Recipe {
+  id             String    @id @default(cuid())
+  paprikaUid     String    @unique
+  hash           String?
+  name           String
+  description    String?   @default("")
+  ingredients    String    @default("")
+  directions     String    @default("")
+  notes          String?   @default("")
+  servings       String?   @default("")
+  prepTime       String?   @default("")
+  cookTime       String?   @default("")
+  totalTime      String?   @default("")
+  difficulty     String?   @default("")
+  rating         Int       @default(0)
+  categoriesJson String    @default("[]")
+  source         String?   @default("")
+  sourceUrl      String?   @default("")
+  imageUrl       String?   @default("")
+  photoUrl       String?   @default("")
+  inTrash        Boolean   @default(false)
+  onFavorites    Boolean   @default(false)
+  lastSyncedAt   DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  mealItems      MealItem[]
+}
+
+model MealPlan {
+  id          String     @id @default(cuid())
+  title       String
+  startsOn    DateTime
+  daysJson    String     @default("[]")
+  people      Float      @default(2.5)
+  status      String     @default("draft")
+  llmNotes    String?    @default("")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  items       MealItem[]
+  shoppingList ShoppingList?
+}
+
+model MealItem {
+  id            String   @id @default(cuid())
+  mealPlanId    String
+  mealPlan      MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  date          DateTime
+  dayName       String
+  title         String
+  type          String   @default("dinner")
+  recipeId      String?
+  recipe        Recipe?  @relation(fields: [recipeId], references: [id])
+  isRemix       Boolean  @default(false)
+  remixSource   String?  @default("")
+  reasoning     String?  @default("")
+  ingredients   String   @default("")
+  instructions  String   @default("")
+  createdAt     DateTime @default(now())
+}
+
+model ShoppingList {
+  id          String             @id @default(cuid())
+  mealPlanId  String             @unique
+  mealPlan    MealPlan           @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  title       String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  items       ShoppingListItem[]
+}
+
+model ShoppingListItem {
+  id             String       @id @default(cuid())
+  shoppingListId String
+  shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  name           String
+  quantity       String?      @default("")
+  category       String?      @default("")
+  checked        Boolean      @default(false)
+  source         String?      @default("")
+  order          Int          @default(0)
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

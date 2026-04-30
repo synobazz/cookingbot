@@ -1,0 +1,14 @@
+services:
+  cookingbot:
+    build: .
+    container_name: cookingbot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - cookingbot-data:/data
+
+volumes:
+  cookingbot-data:
