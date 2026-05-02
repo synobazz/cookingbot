@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>cookingbot — redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f6f1e7;
+  --paper-2:#efe7d6;
+  --card:#fffdf8;
+  --card-2:#fbf6ec;
+  --ink:#1a1612;
+  --ink-2:#3b342c;
+  --muted:#857b6e;
+  --line:rgba(26,22,18,.09);
+  --line-strong:rgba(26,22,18,.16);
+  --forest:#1f3a2e;
+  --forest-2:#2a513f;
+  --forest-soft:#e3ecdf;
+  --terra:#b85440;
+  --terra-soft:#f4e0d6;
+  --gold:#b88928;
+  --warn:#a23a2b;
+  --shadow-sm:0 1px 2px rgba(26,22,18,.04), 0 2px 6px rgba(26,22,18,.04);
+  --shadow:0 1px 2px rgba(26,22,18,.04), 0 12px 28px -8px rgba(26,22,18,.12);
+  --shadow-lg:0 1px 2px rgba(26,22,18,.04), 0 30px 60px -16px rgba(26,22,18,.18);
+  --radius:14px;
+  --radius-lg:22px;
+  --radius-xl:28px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root.auto{
+    --paper:#16130f;
+    --paper-2:#1d1a16;
+    --card:#1f1c17;
+    --card-2:#26221c;
+    --ink:#f4ecdc;
+    --ink-2:#d8cfbf;
+    --muted:#9c9384;
+    --line:rgba(244,236,220,.08);
+    --line-strong:rgba(244,236,220,.16);
+    --forest:#a8c5a3;
+    --forest-2:#7da683;
+    --forest-soft:#1f2a23;
+    --terra:#e08568;
+    --terra-soft:#3b251c;
+    --gold:#dab260;
+  }
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'DM Sans',ui-sans-serif,system-ui,sans-serif;
+  font-feature-settings:"ss01","ss02","cv11";
+  font-optical-sizing:auto;
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(1100px 600px at 110% -10%, rgba(184,84,64,.07), transparent 60%),
+    radial-gradient(900px 700px at -10% 110%, rgba(31,58,46,.08), transparent 60%);
+}
+.grain{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+  opacity:.35;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.serif{font-family:'Fraunces','Georgia',serif;font-optical-sizing:auto;letter-spacing:-.012em}
+.serif-italic{font-family:'Fraunces',serif;font-style:italic;font-variation-settings:"SOFT" 100}
+
+/* ============ Layout shell ============ */
+.app{position:relative;z-index:2;display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.sidebar{
+  position:sticky;top:0;align-self:start;height:100vh;
+  padding:22px 18px;
+  border-right:1px solid var(--line);
+  background:linear-gradient(180deg,var(--paper) 0%, var(--paper-2) 100%);
+  display:flex;flex-direction:column;gap:6px;
+}
+.brand{display:flex;align-items:center;gap:11px;padding:8px 8px 18px;border-bottom:1px dashed var(--line-strong);margin-bottom:14px}
+.brand-mark{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  background:var(--ink);color:var(--paper);
+  font-family:'Fraunces',serif;font-weight:600;font-style:italic;font-size:1.15rem;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), 0 6px 16px -8px rgba(0,0,0,.4);
+  position:relative;
+}
+.brand-mark::after{content:"";position:absolute;inset:4px;border-radius:8px;border:1px dashed rgba(255,255,255,.15)}
+.brand-name{display:flex;flex-direction:column;line-height:1}
+.brand-name b{font-family:'Fraunces',serif;font-weight:600;font-size:1.18rem;letter-spacing:-.02em}
+.brand-name span{font-size:.7rem;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;margin-top:4px}
+
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 12px;border-radius:10px;
+  color:var(--ink-2);text-decoration:none;font-weight:500;font-size:.95rem;
+  border:1px solid transparent;cursor:pointer;background:transparent;text-align:left;width:100%;
+  transition:background .15s, color .15s, border-color .15s;
+}
+.nav-item:hover{background:var(--card);border-color:var(--line)}
+.nav-item.active{background:var(--ink);color:var(--paper);box-shadow:var(--shadow-sm)}
+.nav-item.active .ico{color:var(--paper)}
+.ico{width:18px;height:18px;flex:none;color:var(--muted)}
+.nav-item .badge-mini{margin-left:auto;font-size:.72rem;font-weight:600;background:var(--terra-soft);color:var(--terra);padding:2px 7px;border-radius:999px}
+.nav-item.active .badge-mini{background:rgba(255,255,255,.14);color:var(--paper)}
+
+.sidebar-footer{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px dashed var(--line-strong)}
+.sidebar-foot-btn{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;font-size:.85rem;color:var(--muted);background:transparent;border:1px solid transparent;cursor:pointer}
+.sidebar-foot-btn:hover{color:var(--ink);background:var(--card);border-color:var(--line)}
+
+/* main */
+.main{padding:32px 44px 60px;max-width:1240px;width:100%;margin:0 auto}
+
+/* topbar (mobile) */
+.topbar{display:none}
+.tabbar{display:none}
+
+/* ============ shared ============ */
+h1.display{font-family:'Fraunces',serif;font-weight:450;letter-spacing:-.02em;line-height:1;margin:0;font-size:clamp(2rem,3.6vw,3.4rem);font-variation-settings:"SOFT" 30,"opsz" 120}
+h1.display em{font-style:italic;color:var(--terra);font-variation-settings:"SOFT" 100}
+h2.section{font-family:'Fraunces',serif;font-weight:500;font-size:1.5rem;letter-spacing:-.015em;margin:0;line-height:1.1}
+.eyebrow{font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.divider{height:1px;background:var(--line);border:0;margin:24px 0}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+.card-tight{padding:18px}
+.card-pad{padding:24px}
+.card-pad-lg{padding:32px}
+.card-feature{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius-xl);
+  padding:30px;box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.card-feature::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(420px 200px at 100% 0%, rgba(184,84,64,.08), transparent 60%);
+}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 16px;border-radius:11px;
+  font-weight:600;font-size:.92rem;line-height:1;
+  background:var(--ink);color:var(--paper);
+  border:1px solid var(--ink);cursor:pointer;text-decoration:none;
+  transition:transform .12s, box-shadow .15s, background .15s, color .15s, border-color .15s;
+  min-height:42px;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.btn:active{transform:translateY(0)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+.btn.ghost:hover{background:var(--card-2)}
+.btn.forest{background:var(--forest);border-color:var(--forest);color:var(--card)}
+.btn.terra{background:var(--terra);border-color:var(--terra);color:var(--card)}
+.btn.sm{padding:7px 11px;font-size:.82rem;min-height:34px;border-radius:9px}
+.btn.icon-only{width:42px;padding:0}
+.btn.block{width:100%}
+.btn .ico{width:16px;height:16px;color:currentColor}
+
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:.78rem;font-weight:500;
+  padding:5px 10px;border-radius:999px;
+  border:1px solid var(--line-strong);color:var(--ink-2);background:var(--card-2);
+}
+.chip.solid{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.forest{background:var(--forest-soft);color:var(--forest);border-color:transparent}
+.chip.terra{background:var(--terra-soft);color:var(--terra);border-color:transparent}
+.chip.warn{background:#fbe5e0;color:var(--warn);border-color:transparent}
+.chip.gold{background:#f6ecd3;color:var(--gold);border-color:transparent}
+.chip .ico{width:13px;height:13px}
+
+.input,.select,.textarea{
+  width:100%;
+  background:var(--card);
+  border:1px solid var(--line-strong);
+  border-radius:11px;
+  padding:11px 13px;
+  font:inherit;color:var(--ink);
+  transition:border-color .15s, box-shadow .15s;
+}
+.input:focus,.select:focus,.textarea:focus{outline:0;border-color:var(--ink);box-shadow:0 0 0 4px rgba(26,22,18,.06)}
+.label{display:block;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+
+/* =========== Login screen =========== */
+#screen-login{display:none}
+.login-stage{
+  min-height:100vh;display:grid;place-items:center;padding:24px;
+  position:relative;overflow:hidden;
+}
+.login-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(900px 500px at 20% 20%, rgba(31,58,46,.10), transparent 60%),
+    radial-gradient(700px 500px at 80% 80%, rgba(184,84,64,.10), transparent 60%),
+    var(--paper);
+}
+.login-bg::after{
+  content:"";position:absolute;inset:0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 39px, rgba(26,22,18,.04) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgba(26,22,18,.04) 39px 40px);
+  mask-image:radial-gradient(circle at 50% 50%, black, transparent 70%);
+}
+.login-card{
+  position:relative;z-index:2;
+  width:min(440px,100%);
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:24px;
+  padding:38px 32px 32px;
+  box-shadow:var(--shadow-lg);
+}
+.login-mark{width:54px;height:54px;border-radius:14px;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:1.6rem;margin-bottom:22px}
+.login-card .eyebrow{margin-bottom:8px}
+.login-card h1{font-family:'Fraunces',serif;font-weight:450;font-size:2.1rem;line-height:1.04;letter-spacing:-.022em;margin:0 0 10px;font-variation-settings:"SOFT" 40}
+.login-card h1 em{font-style:italic;color:var(--terra)}
+.login-card p.lead{color:var(--muted);font-size:.96rem;margin:0 0 24px}
+.login-form{display:grid;gap:14px}
+.input-pw{position:relative}
+.input-pw .input{padding-right:42px}
+.input-pw button{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:34px;height:34px;border:0;background:transparent;display:grid;place-items:center;
+  color:var(--muted);cursor:pointer;border-radius:8px;
+}
+.input-pw button:hover{background:var(--card-2);color:var(--ink)}
+.login-foot{margin-top:18px;font-size:.78rem;color:var(--muted);text-align:center}
+
+/* =========== Dashboard =========== */
+.page-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:26px;flex-wrap:wrap}
+.page-head .left{display:flex;flex-direction:column;gap:8px}
+.page-head h1{margin:0}
+.page-head .sub{color:var(--muted);font-size:.95rem}
+.page-head .actions{display:flex;gap:10px;flex-wrap:wrap}
+
+.dash-grid{display:grid;grid-template-columns:2fr 1fr;gap:22px;margin-bottom:24px}
+.tonight{
+  position:relative;overflow:hidden;
+  background:var(--ink);color:var(--paper);
+  border-radius:var(--radius-xl);
+  padding:30px 30px 26px;
+  display:grid;grid-template-columns:1fr;gap:18px;
+  min-height:280px;
+}
+.tonight::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(700px 300px at 110% 0%, rgba(184,84,64,.45), transparent 55%),
+    radial-gradient(500px 300px at -10% 110%, rgba(31,58,46,.45), transparent 55%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 2px, transparent 2px 8px);
+}
+.tonight > *{position:relative;z-index:1}
+.tonight .eyebrow{color:rgba(246,241,231,.7)}
+.tonight h2{
+  font-family:'Fraunces',serif;font-weight:380;font-size:clamp(1.9rem,3.2vw,2.6rem);line-height:1.04;letter-spacing:-.02em;margin:6px 0 0;
+  font-variation-settings:"SOFT" 60,"opsz" 144;
+}
+.tonight h2 em{font-style:italic;color:#f1c894}
+.tonight .meta{display:flex;gap:14px;flex-wrap:wrap;color:rgba(246,241,231,.78);font-size:.9rem}
+.tonight .meta span{display:inline-flex;gap:6px;align-items:center}
+.tonight .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:18px}
+.tonight .btn{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.tonight .btn.ghost{background:transparent;color:var(--paper);border-color:rgba(246,241,231,.32)}
+.tonight .btn.ghost:hover{background:rgba(246,241,231,.08)}
+
+.stack{display:grid;gap:14px}
+.stat-card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);
+  padding:18px 20px;display:flex;align-items:center;gap:14px;
+}
+.stat-card .stat-icon{
+  width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+  background:var(--card-2);color:var(--ink);
+}
+.stat-card .num{font-family:'Fraunces',serif;font-weight:500;font-size:1.7rem;line-height:1;letter-spacing:-.02em}
+.stat-card .lab{color:var(--muted);font-size:.82rem;margin-top:2px}
+.stat-card.terra .stat-icon{background:var(--terra-soft);color:var(--terra)}
+.stat-card.forest .stat-icon{background:var(--forest-soft);color:var(--forest)}
+.stat-card.gold .stat-icon{background:#f6ecd3;color:var(--gold)}
+
+/* week glance */
+.week-card{padding:24px}
+.week-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:18px}
+.week-head .ttl{display:flex;flex-direction:column;gap:4px}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.day{
+  background:var(--card-2);border:1px solid var(--line);border-radius:14px;
+  padding:12px 12px 14px;display:flex;flex-direction:column;gap:8px;min-height:140px;
+  transition:border-color .15s, transform .15s;
+  cursor:pointer;
+}
+.day:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+.day.today{border-color:var(--ink);background:var(--card);position:relative}
+.day.today::after{content:"heute";position:absolute;top:-8px;right:10px;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;background:var(--ink);color:var(--paper);padding:2px 8px;border-radius:999px;font-weight:700}
+.day .dlabel{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.day .dlabel b{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.day .dlabel small{font-family:'Fraunces',serif;font-size:1.15rem;color:var(--ink);font-weight:500}
+.day .meal-name{font-size:.92rem;font-weight:500;line-height:1.25;color:var(--ink);margin-top:auto}
+.day .meal-tag{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.day.empty .meal-name{color:var(--muted);font-style:italic;font-weight:400}
+.day .add-btn{
+  margin-top:auto;width:100%;padding:7px;border-radius:8px;
+  background:transparent;color:var(--muted);border:1px dashed var(--line-strong);
+  font-size:.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px
+}
+.day .add-btn:hover{color:var(--ink);border-color:var(--ink-2);background:var(--card)}
+
+/* recent recipes */
+.section-head{display:flex;justify-content:space-between;align-items:end;gap:14px;margin:36px 0 18px}
+.section-head .l{display:flex;flex-direction:column;gap:4px}
+.section-head a{color:var(--ink);font-size:.85rem;text-decoration:none;border-bottom:1px solid var(--line-strong);padding-bottom:1px}
+.section-head a:hover{border-color:var(--ink)}
+
+.rec-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+
+/* recipe card */
+.recipe-card{
+  background:var(--card);border:1px solid var(--line);border-radius:18px;
+  overflow:hidden;display:flex;flex-direction:column;
+  transition:transform .2s, box-shadow .2s, border-color .2s;
+  cursor:pointer;
+}
+.recipe-card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--line-strong)}
+.recipe-img{
+  aspect-ratio:5/4;
+  background:linear-gradient(135deg,var(--card-2),var(--paper-2));
+  position:relative;overflow:hidden;
+  display:grid;place-items:center;
+}
+.recipe-img.terra{background:linear-gradient(135deg,#f4d0bf,#e9bba1)}
+.recipe-img.forest{background:linear-gradient(135deg,#cfdcc6,#a9c0a0)}
+.recipe-img.gold{background:linear-gradient(135deg,#f6e4b8,#e6cb86)}
+.recipe-img.ink{background:linear-gradient(135deg,#3b342c,#1a1612);color:#e9d6b0}
+.recipe-img.cream{background:linear-gradient(135deg,#f7e9cf,#ecd6a8)}
+.recipe-img.berry{background:linear-gradient(135deg,#cda9a3,#a87b7a)}
+.recipe-img.olive{background:linear-gradient(135deg,#c8c89a,#9aa56e)}
+.recipe-img.sage{background:linear-gradient(135deg,#d3ddc9,#a8b89c)}
+.recipe-img-glyph{
+  font-family:'Fraunces',serif;font-style:italic;font-weight:300;font-size:3.2rem;
+  color:rgba(26,22,18,.22);user-select:none;letter-spacing:-.04em;
+  font-variation-settings:"SOFT" 100;
+}
+.recipe-img.ink .recipe-img-glyph{color:rgba(233,214,176,.45)}
+.recipe-meta{position:absolute;top:10px;left:10px;display:flex;gap:6px}
+.recipe-meta .chip{font-size:.7rem;padding:4px 8px;background:rgba(255,253,248,.92);border-color:transparent}
+.recipe-fav{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:8px;background:rgba(255,253,248,.92);border:0;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.recipe-fav.on{color:var(--terra)}
+.recipe-info{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.recipe-stars{display:flex;gap:1px;color:var(--gold);font-size:.85rem;line-height:1}
+.recipe-stars .off{color:rgba(184,137,40,.25)}
+.recipe-info h4{font-family:'Fraunces',serif;font-weight:500;font-size:1.05rem;line-height:1.2;margin:0;letter-spacing:-.012em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.recipe-info .recipe-meta-2{display:flex;gap:12px;font-size:.78rem;color:var(--muted);margin-top:auto}
+.recipe-info .recipe-meta-2 span{display:inline-flex;gap:4px;align-items:center}
+.recipe-info .recipe-meta-2 .ico{width:13px;height:13px}
+
+/* =========== Recipes page =========== */
+.search-bar{
+  display:flex;gap:10px;align-items:center;
+  background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:6px;margin-bottom:18px;
+}
+.search-bar .input{border:0;background:transparent;padding-left:14px}
+.search-bar .input:focus{box-shadow:none}
+.filters-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;align-items:center}
+.filter-pill{
+  background:var(--card);color:var(--ink-2);font-size:.85rem;font-weight:500;
+  border:1px solid var(--line-strong);padding:7px 13px;border-radius:999px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.filter-pill:hover{background:var(--card-2)}
+.filter-pill.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.filter-pill .x{opacity:.7}
+.filters-spacer{flex:1}
+.sort-dd{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.85rem}
+.sort-dd select{background:transparent;border:0;color:var(--ink);font-weight:600;cursor:pointer;padding:4px}
+.recipe-count{color:var(--muted);font-size:.88rem;margin-bottom:14px}
+
+.rec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+
+/* =========== Planner =========== */
+.planner-grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start}
+.planner-form{position:sticky;top:24px}
+.planner-form h3{font-family:'Fraunces',serif;font-weight:500;font-size:1.3rem;margin:0 0 14px;letter-spacing:-.012em}
+.planner-form .form-grid{display:grid;gap:14px}
+.day-toggles{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day-toggle{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 0;border-radius:9px;cursor:pointer;
+  border:1px solid var(--line-strong);background:var(--card);font-size:.78rem;color:var(--muted);font-weight:600;
+  transition:all .12s;
+}
+.day-toggle b{font-size:.85rem;color:var(--ink);font-family:'Fraunces',serif;font-weight:500}
+.day-toggle:hover{background:var(--card-2)}
+.day-toggle.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.day-toggle.on b{color:var(--paper)}
+.people-stepper{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line-strong);border-radius:11px;padding:6px}
+.people-stepper button{width:32px;height:32px;border-radius:8px;border:0;background:var(--card-2);color:var(--ink);cursor:pointer;font-size:1rem;font-weight:600}
+.people-stepper button:hover{background:var(--paper-2)}
+.people-stepper .v{flex:1;text-align:center;font-family:'Fraunces',serif;font-weight:500;font-size:1.1rem}
+.people-stepper .lbl{font-size:.78rem;color:var(--muted);padding-right:8px}
+
+.plan-week{padding:24px}
+.plan-tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--card-2);border-radius:11px;padding:4px;width:fit-content}
+.plan-tab{padding:7px 13px;border-radius:8px;border:0;background:transparent;cursor:pointer;font-size:.82rem;color:var(--muted);font-weight:600}
+.plan-tab.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow-sm)}
+
+.plan-row{display:grid;grid-template-columns:90px 1fr auto;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.plan-row:last-child{border-bottom:0}
+.plan-row .plan-day{display:flex;flex-direction:column;gap:2px}
+.plan-row .plan-day b{font-family:'Fraunces',serif;font-weight:500;font-size:1.05rem}
+.plan-row .plan-day span{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+.plan-row .plan-meal{display:flex;flex-direction:column;gap:5px}
+.plan-row .plan-meal .pm-title{font-weight:500;font-size:1rem;line-height:1.25}
+.plan-row .plan-meal .pm-reason{color:var(--muted);font-size:.85rem;line-height:1.35}
+.plan-row .plan-meal .pm-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.plan-row.empty .plan-meal{color:var(--muted);font-style:italic}
+.plan-row .plan-acts{display:flex;gap:6px}
+.plan-row .plan-acts .btn{padding:8px 11px;font-size:.8rem;min-height:36px}
+
+.plan-foot{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px dashed var(--line-strong)}
+
+/* =========== Shopping =========== */
+.shop-progress{
+  background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;
+  display:flex;align-items:center;gap:24px;margin-bottom:22px;
+}
+.shop-ring{
+  width:78px;height:78px;flex:none;
+  border-radius:50%;
+  background:conic-gradient(var(--forest) 0 calc(var(--p,30) * 1%), var(--card-2) 0);
+  display:grid;place-items:center;
+  position:relative;
+}
+.shop-ring::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--card)}
+.shop-ring span{position:relative;z-index:1;font-family:'Fraunces',serif;font-weight:500;font-size:1.2rem;letter-spacing:-.01em}
+.shop-progress .meta{display:flex;flex-direction:column;gap:4px}
+.shop-progress h3{margin:0;font-family:'Fraunces',serif;font-weight:500;font-size:1.4rem}
+.shop-progress p{margin:0;color:var(--muted)}
+.shop-progress .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+.ms-banner{
+  background:linear-gradient(135deg,var(--forest),var(--forest-2));color:var(--paper);
+  border-radius:18px;padding:18px 22px;display:flex;align-items:center;gap:14px;margin-bottom:22px;
+}
+.ms-banner .ms-icon{
+  width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex:none;
+}
+.ms-banner .ms-text{flex:1}
+.ms-banner h4{margin:0 0 2px;font-family:'Fraunces',serif;font-weight:500;font-size:1.05rem}
+.ms-banner p{margin:0;color:rgba(246,241,231,.8);font-size:.9rem}
+.ms-banner .btn{background:var(--paper);color:var(--ink);border-color:var(--paper);flex:none}
+
+.shop-cat{margin-bottom:24px}
+.shop-cat-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;user-select:none}
+.shop-cat-head h4{font-family:'Fraunces',serif;font-weight:500;font-size:1.15rem;margin:0}
+.shop-cat-head .count{color:var(--muted);font-size:.85rem}
+.shop-cat-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s}
+.shop-cat.collapsed .chev{transform:rotate(-90deg)}
+.shop-cat.collapsed .shop-list{display:none}
+.shop-list{display:grid;grid-template-columns:repeat(2,1fr);gap:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.shop-item{
+  display:flex;align-items:center;gap:12px;padding:13px 16px;
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  transition:background .15s;cursor:pointer;
+}
+.shop-item:nth-child(2n){border-right:0}
+.shop-item:nth-last-child(-n+2){border-bottom:0}
+.shop-item:hover{background:var(--card-2)}
+.shop-check{
+  width:22px;height:22px;border-radius:7px;
+  border:1.5px solid var(--line-strong);background:transparent;
+  display:grid;place-items:center;flex:none;cursor:pointer;
+  transition:all .15s;
+}
+.shop-check svg{opacity:0;width:13px;height:13px;color:var(--paper);transition:opacity .15s}
+.shop-item.done .shop-check{background:var(--forest);border-color:var(--forest)}
+.shop-item.done .shop-check svg{opacity:1}
+.shop-item .ttl{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.shop-item .ttl b{font-weight:500;transition:all .2s}
+.shop-item .ttl span{font-size:.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-item.done .ttl b{text-decoration:line-through;color:var(--muted)}
+.shop-item .qty{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* =========== Modal =========== */
+.modal-back{position:fixed;inset:0;z-index:60;background:rgba(26,22,18,.5);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px}
+.modal-back.on{display:flex;animation:fade .2s}
+.modal{
+  width:min(720px,100%);max-height:90vh;overflow:hidden;
+  background:var(--card);border-radius:22px;
+  display:grid;grid-template-rows:auto 1fr;
+  box-shadow:var(--shadow-lg);position:relative;
+  animation:slideup .25s cubic-bezier(.2,.8,.2,1);
+}
+.modal-hero{
+  height:200px;background:linear-gradient(135deg,#f4d0bf,#e9bba1);
+  display:grid;place-items:center;position:relative;
+}
+.modal-hero .recipe-img-glyph{font-size:4.5rem;color:rgba(26,22,18,.18)}
+.modal-close{
+  position:absolute;top:14px;right:14px;
+  width:38px;height:38px;border-radius:10px;border:0;
+  background:rgba(255,253,248,.92);color:var(--ink);cursor:pointer;
+  display:grid;place-items:center;
+  box-shadow:var(--shadow-sm);
+}
+.modal-body{overflow:auto;padding:26px 28px 28px}
+.modal-body h2{font-family:'Fraunces',serif;font-weight:500;font-size:1.7rem;letter-spacing:-.015em;margin:0 0 6px;line-height:1.1}
+.modal-body .modal-meta{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:.88rem;margin:8px 0 18px}
+.modal-cols{display:grid;grid-template-columns:.85fr 1.15fr;gap:22px}
+.modal-panel h4{font-family:'Fraunces',serif;font-weight:500;font-size:1rem;margin:0 0 10px;letter-spacing:-.005em;
+  display:flex;align-items:center;gap:8px}
+.modal-panel ul{margin:0;padding:0;list-style:none}
+.modal-panel.ingredients li{padding:8px 0;border-bottom:1px dashed var(--line);font-size:.92rem;display:flex;justify-content:space-between;gap:10px}
+.modal-panel.ingredients li:last-child{border:0}
+.modal-panel.ingredients li span{color:var(--muted)}
+.modal-panel.steps li{padding:10px 0 12px;display:flex;gap:14px;border-bottom:1px solid var(--line);font-size:.95rem;line-height:1.5}
+.modal-panel.steps li:last-child{border:0}
+.modal-panel.steps .step-n{
+  width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--paper);
+  font-family:'Fraunces',serif;font-weight:500;font-size:.85rem;
+  display:grid;place-items:center;flex:none;margin-top:1px;
+}
+
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes slideup{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+
+/* =========== Empty states =========== */
+.empty{
+  text-align:center;padding:50px 20px;
+  border:1px dashed var(--line-strong);border-radius:18px;background:var(--card-2);
+}
+.empty .e-icon{width:54px;height:54px;border-radius:14px;background:var(--card);display:grid;place-items:center;margin:0 auto 14px;color:var(--muted)}
+.empty h3{font-family:'Fraunces',serif;font-weight:500;font-size:1.3rem;margin:0 0 6px}
+.empty p{color:var(--muted);margin:0 0 16px;font-size:.92rem}
+
+/* =========== Mobile =========== */
+@media (max-width: 1024px){
+  .app{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .topbar{
+    display:flex;position:sticky;top:0;z-index:20;
+    align-items:center;justify-content:space-between;
+    padding:14px 16px;background:var(--paper);border-bottom:1px solid var(--line);
+  }
+  .topbar .brand-mark{width:34px;height:34px;font-size:1rem}
+  .topbar .brand-name b{font-size:1rem}
+  .topbar .brand-name span{display:none}
+  .topbar .brand{padding:0;border:0;margin:0}
+  .topbar .top-act{
+    width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+    display:grid;place-items:center;cursor:pointer;color:var(--ink-2);
+  }
+  .main{padding:18px 16px 100px}
+  .tabbar{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;
+    background:var(--paper);border-top:1px solid var(--line);
+    padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    justify-content:space-around;
+  }
+  .tab-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:8px 4px;border-radius:11px;border:0;background:transparent;
+    color:var(--muted);font-size:.7rem;font-weight:600;cursor:pointer;
+  }
+  .tab-btn .ico{width:22px;height:22px}
+  .tab-btn.active{color:var(--ink)}
+  .tab-btn.active .ico{color:var(--ink)}
+
+  .dash-grid{grid-template-columns:1fr}
+  .week-grid{grid-template-columns:repeat(7,minmax(110px,1fr));overflow-x:auto;padding-bottom:6px}
+  .day{min-height:120px}
+  .rec-strip{grid-template-columns:repeat(2,1fr)}
+  .rec-grid{grid-template-columns:repeat(2,1fr)}
+  .planner-grid{grid-template-columns:1fr}
+  .planner-form{position:static}
+  .plan-row{grid-template-columns:1fr;gap:8px}
+  .plan-row .plan-acts{justify-content:flex-start}
+  .modal-cols{grid-template-columns:1fr}
+  .shop-list{grid-template-columns:1fr}
+  .shop-item{border-right:0}
+  .shop-item:nth-last-child(-n+2){border-bottom:1px solid var(--line)}
+  .shop-item:last-child{border-bottom:0}
+  .page-head h1.display{font-size:2rem}
+  .tonight h2{font-size:1.7rem}
+  .stack{grid-template-columns:repeat(3,1fr);display:grid}
+  .stat-card{padding:14px;flex-direction:column;align-items:flex-start;gap:8px;text-align:left}
+  .stat-card .stat-icon{width:34px;height:34px}
+  .stat-card .num{font-size:1.4rem}
+  .filters-row{overflow-x:auto;flex-wrap:nowrap;padding-bottom:6px;margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}
+  .filter-pill{flex:none}
+  .filters-spacer,.sort-dd{display:none}
+  .shop-progress{flex-direction:column;align-items:flex-start;gap:14px}
+  .shop-progress .acts{margin-left:0;width:100%}
+  .ms-banner{flex-wrap:wrap}
+  .ms-banner .btn{width:100%}
+}
+@media (max-width: 540px){
+  .stack{grid-template-columns:1fr 1fr}
+  .stat-card:last-child{grid-column:1/-1}
+  .day{min-height:110px}
+  .rec-strip{grid-template-columns:1fr 1fr;gap:12px}
+}
+
+/* helpers */
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<section id="screen-login">
+  <div class="login-stage">
+    <div class="login-bg"></div>
+    <div class="login-card">
+      <div class="login-mark">c</div>
+      <div class="eyebrow">Cookingbot · privat</div>
+      <h1>Was kommt heute <em>auf den Tisch?</em></h1>
+      <p class="lead">Deine Wochenplanung mit Paprika-Rezepten, KI-Vorschlägen und einer ehrlichen Einkaufsliste.</p>
+      <form class="login-form" onsubmit="event.preventDefault();go('dashboard')">
+        <div>
+          <label class="label" for="pw">Passwort</label>
+          <div class="input-pw">
+            <input class="input" id="pw" type="password" autocomplete="current-password" placeholder="••••••••••" />
+            <button type="button" aria-label="Passwort anzeigen" onclick="togglePw(this)">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn block" type="submit">In die Küche</button>
+      </form>
+      <p class="login-foot">Privat gehostet · keine Tracker · keine Telemetrie</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APP SHELL ============ -->
+<div class="app" id="app-shell">
+  <!-- Sidebar (desktop) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">c</div>
+      <div class="brand-name"><b>cookingbot</b><span>Familienküche</span></div>
+    </div>
+
+    <button class="nav-item active" data-route="dashboard" onclick="go('dashboard')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
+      Heute
+    </button>
+    <button class="nav-item" data-route="recipes" onclick="go('recipes')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4V4z"/><path d="M4 4v12a4 4 0 004 4"/></svg>
+      Rezepte
+      <span class="badge-mini">142</span>
+    </button>
+    <button class="nav-item" data-route="planner" onclick="go('planner')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      Wochenplan
+    </button>
+    <button class="nav-item" data-route="shopping" onclick="go('shopping')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14l-1.5 11a2 2 0 01-2 1.7H8.5a2 2 0 01-2-1.7L5 7z"/><path d="M9 7V5a3 3 0 016 0v2"/></svg>
+      Einkauf
+      <span class="badge-mini">7</span>
+    </button>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-foot-btn">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 008.6 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Einstellungen
+      </button>
+      <button class="sidebar-foot-btn" onclick="go('login')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <!-- Mobile topbar -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">c</div>
+        <div class="brand-name"><b>cookingbot</b></div>
+      </div>
+      <button class="top-act" aria-label="Suche">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      </button>
+    </div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="screen-dashboard">
+      <div class="page-head">
+        <div class="left">
+          <span class="eyebrow">Samstag · 2. Mai · Frühling</span>
+          <h1 class="display">Guten Abend, <em>Familie.</em></h1>
+          <span class="sub">7 Abendessen für 2,5 Personen — KW&nbsp;19 ist geplant.</span>
+        </div>
+        <div class="actions">
+          <button class="btn ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Paprika syncen</button>
+          <button class="btn" onclick="go('planner')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Neue Woche planen</button>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="tonight">
+          <div class="eyebrow">Heute Abend · spontan</div>
+          <h2>Zitronen-Risotto <em>mit Erbsen</em></h2>
+          <div class="meta">
+            <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> 35 Minuten</span>
+            <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/></svg> 2,5 Personen</span>
+            <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z"/></svg> 5 von 5</span>
+          </div>
+          <div class="acts">
+            <button class="btn" onclick="openModal()">Rezept öffnen</button>
+            <button class="btn ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0118 0M3 12a9 9 0 0018 0M3 12l3-3M21 12l-3-3M3 12l3 3M21 12l-3 3"/></svg>Anderes Gericht</button>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="stat-card terra">
+            <div class="stat-icon">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4V4z"/></svg>
+            </div>
+            <div><div class="num">142</div><div class="lab">Rezepte synchronisiert</div></div>
+          </div>
+          <div class="stat-card forest">
+            <div class="stat-icon">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            </div>
+            <div><div class="num">5/7</div><div class="lab">Tage geplant diese Woche</div></div>
+          </div>
+          <div class="stat-card gold">
+            <div class="stat-icon">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14l-1.5 11a2 2 0 01-2 1.7H8.5a2 2 0 01-2-1.7L5 7z"/></svg>
+            </div>
+            <div><div class="num">7</div><div class="lab">offene Einkaufspunkte</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card week-card">
+        <div class="week-head">
+          <div class="ttl">
+            <span class="eyebrow">Familienplan · KW 19</span>
+            <h2 class="section">Diese Woche im Blick</h2>
+          </div>
+          <button class="btn ghost sm" onclick="go('planner')">Plan bearbeiten →</button>
+        </div>
+        <div class="week-grid">
+          <div class="day"><div class="dlabel"><b>Mo</b><small>5</small></div><span class="meal-tag">Schnell</span><span class="meal-name">Linsen-Curry mit Reis</span></div>
+          <div class="day"><div class="dlabel"><b>Di</b><small>6</small></div><span class="meal-tag">Vegetarisch</span><span class="meal-name">Pasta mit Ofentomaten</span></div>
+          <div class="day"><div class="dlabel"><b>Mi</b><small>7</small></div><span class="meal-tag">Klassiker</span><span class="meal-name">Mildes Chili con Carne</span></div>
+          <div class="day"><div class="dlabel"><b>Do</b><small>8</small></div><span class="meal-tag">Remix</span><span class="meal-name">Risotto-Laibchen mit Salat</span></div>
+          <div class="day"><div class="dlabel"><b>Fr</b><small>9</small></div><span class="meal-tag">Suppe</span><span class="meal-name">Kartoffel-Lauch-Suppe</span></div>
+          <div class="day today"><div class="dlabel"><b>Sa</b><small>10</small></div><span class="meal-tag">Heute Abend</span><span class="meal-name">Zitronen-Risotto mit Erbsen</span></div>
+          <div class="day empty"><div class="dlabel"><b>So</b><small>11</small></div><button class="add-btn">+ Gericht wählen</button></div>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <div class="l">
+          <span class="eyebrow">Saisonal</span>
+          <h2 class="section">Frühlingsfavoriten aus Paprika</h2>
+        </div>
+        <a href="#" onclick="go('recipes');return false">Alle 142 Rezepte →</a>
+      </div>
+      <div class="rec-strip">
+        <article class="recipe-card" onclick="openModal()">
+          <div class="recipe-img sage"><span class="recipe-img-glyph">Sp</span><div class="recipe-meta"><span class="chip">Schnell</span></div></div>
+          <div class="recipe-info"><div class="recipe-stars">★★★★★</div><h4>Spargel-Risotto mit Parmesan</h4><div class="recipe-meta-2"><span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30&nbsp;Min</span><span>2,5 Pers.</span></div></div>
+        </article>
+        <article class="recipe-card" onclick="openModal()">
+          <div class="recipe-img terra"><span class="recipe-img-glyph">Bä</span><div class="recipe-meta"><span class="chip">Familie</span></div></div>
+          <div class="recipe-info"><div class="recipe-stars">★★★★<span class="off">★</span></div><h4>Bärlauch-Pesto Pasta</h4><div class="recipe-meta-2"><span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>20&nbsp;Min</span><span>2,5 Pers.</span></div></div>
+        </article>
+        <article class="recipe-card" onclick="openModal()">
+          <div class="recipe-img cream"><span class="recipe-img-glyph">Rh</span><div class="recipe-meta"><span class="chip">Süß</span></div></div>
+          <div class="recipe-info"><div class="recipe-stars">★★★★<span class="off">★</span></div><h4>Rhabarber-Crumble</h4><div class="recipe-meta-2"><span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>45&nbsp;Min</span><span>4 Pers.</span></div></div>
+        </article>
+        <article class="recipe-card" onclick="openModal()">
+          <div class="recipe-img olive"><span class="recipe-img-glyph">Er</span><div class="recipe-meta"><span class="chip forest">Vegetarisch</span></div></div>
+          <div class="recipe-info"><div class="recipe-stars">★★★★★</div><h4>Erbsen-Minze-Suppe</h4><div class="recipe-meta-2"><span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25&nbsp;Min</span><span>4 Pers.</span></div></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ RECIPES ============ -->
+    <section id="screen-recipes" class="hidden">
+      <div class="page-head">
+        <div class="left">
+          <span class="eyebrow">Paprika · lokaler Cache</span>
+          <h1 class="display">Rezepte<em>.</em></h1>
+          <span class="sub">142 Rezepte · zuletzt synchronisiert vor 2 Stunden</span>
+        </div>
+        <div class="actions">
+          <button class="btn ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Jetzt synchronisieren</button>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <svg class="ico" style="margin-left:14px;color:var(--muted)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input class="input" placeholder="Suche nach Risotto, Curry, Suppe…" />
+        <button class="btn sm" style="margin-right:6px">Suchen</button>
+      </div>
+
+      <div class="filters-row">
+        <button class="filter-pill on">Alle</button>
+        <button class="filter-pill">Schnell <span class="x">✕</span></button>
+        <button class="filter-pill">Vegetarisch</button>
+        <button class="filter-pill">Kindertauglich</button>
+        <button class="filter-pill">Saison: Frühling</button>
+        <button class="filter-pill">Meal Prep</button>
+        <button class="filter-pill">Suppe</button>
+        <div class="filters-spacer"></div>
+        <div class="sort-dd">
+          Sortieren:
+          <select>
+            <option>Bewertung</option>
+            <option>Name (A–Z)</option>
+            <option>Zuletzt synchronisiert</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="recipe-count">38 Rezepte · 1 Filter aktiv</div>
+
+      <div class="rec-grid">
+        <!-- 8 recipe cards (siehe Original-Prototyp im Chat) -->
+      </div>
+    </section>
+
+    <!-- ============ PLANNER ============ -->
+    <section id="screen-planner" class="hidden">
+      <div class="page-head">
+        <div class="left">
+          <span class="eyebrow">KI-Wochenplanung</span>
+          <h1 class="display">Plan <em>kochen</em> lassen.</h1>
+          <span class="sub">KW 19 · 5. — 11. Mai · 2,5 Personen</span>
+        </div>
+      </div>
+
+      <div class="planner-grid">
+        <aside class="planner-form">
+          <div class="card card-pad">
+            <h3>Neue Woche</h3>
+            <div class="form-grid">
+              <div><label class="label">Startdatum</label><input class="input" type="date" value="2026-05-04" /></div>
+              <div>
+                <label class="label">Personen</label>
+                <div class="people-stepper"><button>−</button><span class="v">2,5</span><button>+</button></div>
+              </div>
+              <div>
+                <label class="label">Welche Tage?</label>
+                <div class="day-toggles">
+                  <div class="day-toggle on"><b>Mo</b><span>5</span></div>
+                  <div class="day-toggle on"><b>Di</b><span>6</span></div>
+                  <div class="day-toggle on"><b>Mi</b><span>7</span></div>
+                  <div class="day-toggle on"><b>Do</b><span>8</span></div>
+                  <div class="day-toggle on"><b>Fr</b><span>9</span></div>
+                  <div class="day-toggle"><b>Sa</b><span>10</span></div>
+                  <div class="day-toggle on"><b>So</b><span>11</span></div>
+                </div>
+              </div>
+              <div>
+                <label class="label">Wünsche / Constraints</label>
+                <textarea class="textarea" rows="4" placeholder="z.B. 2× schnell, 1× kindertauglich, Samstag darf aufwendiger sein…">2× schnell für Mittwoch und Donnerstag. Samstag darf aufwendiger werden. Bitte 1× Suppe.</textarea>
+              </div>
+              <button class="btn forest block">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+                Plan generieren
+              </button>
+              <p class="muted" style="font-size:.78rem;text-align:center;margin:0">Dauert ~1–2&nbsp;Minuten</p>
+            </div>
+          </div>
+        </aside>
+
+        <div class="card plan-week">
+          <div class="plan-tabs">
+            <button class="plan-tab on">Aktueller Plan · KW 19</button>
+            <button class="plan-tab">KW 18</button>
+            <button class="plan-tab">KW 17</button>
+          </div>
+
+          <div class="plan-row">
+            <div class="plan-day"><b>Mo</b><span>5. Mai</span></div>
+            <div class="plan-meal"><div class="pm-title">Linsen-Curry mit Reis</div><div class="pm-reason">Schnell und wärmend zum Wochenstart, kindertauglich.</div><div class="pm-tags"><span class="chip forest">Schnell</span><span class="chip">Vegetarisch</span></div></div>
+            <div class="plan-acts"><button class="btn ghost sm">Tausch</button><button class="btn ghost sm">Remix</button><button class="btn sm">Öffnen</button></div>
+          </div>
+          <!-- weitere plan-rows: Di, Mi, Do, Fr, Sa, So (siehe Original im Chat) -->
+
+          <div class="plan-foot">
+            <div style="display:flex;align-items:center;gap:10px"><span class="chip forest"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg> Plan gespeichert</span><span class="muted" style="font-size:.85rem">vor 5 Minuten</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Plan exportieren</button>
+              <button class="btn" onclick="go('shopping')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14l-1.5 11a2 2 0 01-2 1.7H8.5a2 2 0 01-2-1.7L5 7z"/></svg> Einkaufsliste erzeugen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SHOPPING ============ -->
+    <section id="screen-shopping" class="hidden">
+      <div class="page-head">
+        <div class="left">
+          <span class="eyebrow">Einkauf · KW 19</span>
+          <h1 class="display">Was muss <em>noch in den Korb?</em></h1>
+          <span class="sub">Auto-generiert aus deinem Wochenplan, gruppiert nach Abteilung.</span>
+        </div>
+      </div>
+
+      <div class="shop-progress">
+        <div class="shop-ring" style="--p:30"><span>30%</span></div>
+        <div class="meta">
+          <h3>3 von 10 erledigt</h3>
+          <p>Familienplan KW 19 · 7 offen · 0 in Microsoft To Do</p>
+        </div>
+        <div class="acts">
+          <button class="btn ghost"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 1.7H8a2 2 0 01-2-1.7L5 6"/></svg>Erledigte ausblenden</button>
+          <button class="btn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Drucken</button>
+        </div>
+      </div>
+
+      <div class="ms-banner">
+        <div class="ms-icon"><svg class="ico" style="width:22px;height:22px;color:#fff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg></div>
+        <div class="ms-text"><h4>Microsoft To Do verbinden</h4><p>Schick offene Einkaufspunkte direkt als Aufgaben in deine "Einkauf"-Liste.</p></div>
+        <button class="btn">Verbinden</button>
+      </div>
+
+      <div class="shop-cat">
+        <div class="shop-cat-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h4>Obst &amp; Gemüse</h4>
+          <span class="count">5 Artikel · 1 erledigt</span>
+          <svg class="ico chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="shop-list">
+          <div class="shop-item" onclick="this.classList.toggle('done')"><div class="shop-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></div><div class="ttl"><b>Kirschtomaten</b><span>Pasta mit Ofentomaten</span></div><div class="qty">500&nbsp;g</div></div>
+          <div class="shop-item done" onclick="this.classList.toggle('done')"><div class="shop-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></div><div class="ttl"><b>Kartoffeln</b><span>Kartoffel-Lauch-Suppe</span></div><div class="qty">1&nbsp;kg</div></div>
+          <div class="shop-item" onclick="this.classList.toggle('done')"><div class="shop-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></div><div class="ttl"><b>Lauch</b><span>Kartoffel-Lauch-Suppe</span></div><div class="qty">2&nbsp;Stangen</div></div>
+          <div class="shop-item" onclick="this.classList.toggle('done')"><div class="shop-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></div><div class="ttl"><b>Tiefkühl-Erbsen</b><span>Zitronen-Risotto</span></div><div class="qty">300&nbsp;g</div></div>
+          <div class="shop-item" onclick="this.classList.toggle('done')"><div class="shop-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></div><div class="ttl"><b>Bio-Zitronen</b><span>Zitronen-Risotto</span></div><div class="qty">2&nbsp;Stk</div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- mobile tabbar -->
+<nav class="tabbar">
+  <button class="tab-btn active" data-route="dashboard" onclick="go('dashboard')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg><span>Heute</span></button>
+  <button class="tab-btn" data-route="recipes" onclick="go('recipes')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4V4z"/></svg><span>Rezepte</span></button>
+  <button class="tab-btn" data-route="planner" onclick="go('planner')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Plan</span></button>
+  <button class="tab-btn" data-route="shopping" onclick="go('shopping')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14l-1.5 11a2 2 0 01-2 1.7H8.5a2 2 0 01-2-1.7L5 7z"/></svg><span>Einkauf</span></button>
+</nav>
+
+<!-- ============ Recipe Modal ============ -->
+<div class="modal-back" id="modalBack" onclick="if(event.target===this)closeModal()">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-hero">
+      <span class="recipe-img-glyph">Zi</span>
+      <button class="modal-close" onclick="closeModal()" aria-label="Schließen"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <span class="eyebrow">Rezept · Paprika-Cache</span>
+      <h2>Zitronen-Risotto mit Erbsen</h2>
+      <div class="modal-meta">
+        <span>2,5 Personen</span><span>·</span>
+        <span>10 Min Vorbereitung</span><span>·</span>
+        <span>25 Min Kochzeit</span><span>·</span>
+        <span class="recipe-stars" style="display:inline-flex;color:var(--gold)">★★★★★</span>
+      </div>
+      <p class="muted" style="margin:0 0 22px">Cremig, mild und kindertauglich. Frische Zitrone hellt das Risotto auf, ohne dass es zu sauer wird.</p>
+      <div class="modal-cols">
+        <div class="modal-panel ingredients">
+          <h4><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg> Zutaten</h4>
+          <ul>
+            <li>Risottoreis <span>300&nbsp;g</span></li>
+            <li>Bio-Zitronen <span>2 Stk</span></li>
+            <li>Tiefkühl-Erbsen <span>300&nbsp;g</span></li>
+            <li>Parmesan <span>100&nbsp;g</span></li>
+            <li>Gemüsebrühe <span>1&nbsp;l</span></li>
+            <li>Schalotte <span>1 Stk</span></li>
+            <li>Weißwein <span>100&nbsp;ml</span></li>
+            <li>Butter <span>40&nbsp;g</span></li>
+            <li>Salz, Pfeffer <span>n.&nbsp;B.</span></li>
+          </ul>
+        </div>
+        <div class="modal-panel steps">
+          <h4><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Zubereitung</h4>
+          <ul>
+            <li><span class="step-n">1</span><span>Brühe heiß stellen. Schalotte fein würfeln und in 20&nbsp;g Butter glasig dünsten.</span></li>
+            <li><span class="step-n">2</span><span>Reis hinzugeben, kurz glasig anschwitzen, mit Weißwein ablöschen.</span></li>
+            <li><span class="step-n">3</span><span>Schöpfweise heiße Brühe aufgießen, ca. 18 Minuten unter Rühren köcheln lassen.</span></li>
+            <li><span class="step-n">4</span><span>In den letzten 3 Minuten die Erbsen unterrühren.</span></li>
+            <li><span class="step-n">5</span><span>Vom Herd nehmen, restliche Butter, Parmesan und Zitronenabrieb plus Saft unterrühren. Mit Salz &amp; Pfeffer abschmecken.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function go(route){
+  if(route==='login'){document.getElementById('app-shell').style.display='none';document.getElementById('screen-login').style.display='block';return}
+  document.getElementById('screen-login').style.display='none';
+  document.getElementById('app-shell').style.display='grid';
+  ['dashboard','recipes','planner','shopping'].forEach(r=>{const el=document.getElementById('screen-'+r);if(el)el.classList.toggle('hidden',r!==route)});
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.route===route));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.route===route));
+  window.scrollTo({top:0,behavior:'instant'});
+}
+function openModal(){document.getElementById('modalBack').classList.add('on');document.body.style.overflow='hidden'}
+function closeModal(){document.getElementById('modalBack').classList.remove('on');document.body.style.overflow=''}
+function togglePw(btn){const inp=btn.parentElement.querySelector('input');inp.type=inp.type==='password'?'text':'password'}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+const params=new URLSearchParams(location.search);
+if(params.get('start')==='login') go('login');
+</script>
+</body>
+</html>

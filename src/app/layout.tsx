@@ -1,8 +1,25 @@
 import type { Metadata } from "next";
+import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
-import Link from "next/link";
+import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
+import { Sidebar } from "./_components/sidebar";
+import { Topbar } from "./_components/topbar";
+import { MobileTabbar } from "./_components/mobile-tabbar";
 import { SubmitFeedback } from "./submit-feedback";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-fraunces",
+  axes: ["SOFT", "opsz"],
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-dm-sans",
+});
 
 export const metadata: Metadata = {
   title: "Cookingbot",
@@ -11,38 +28,32 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const authed = await requireAuth();
+
+  let counts = { recipes: 0, shopping: 0 };
+  if (authed) {
+    const [recipes, shopping] = await Promise.all([
+      prisma.recipe.count({ where: { inTrash: false } }),
+      prisma.shoppingListItem.count({ where: { checked: false } }),
+    ]);
+    counts = { recipes, shopping };
+  }
+
   return (
-    <html lang="de">
+    <html lang="de" className={`${fraunces.variable} ${dmSans.variable}`}>
       <body>
         <SubmitFeedback />
+        <div className="grain" aria-hidden />
         {authed ? (
-          <div className="app-shell">
-            <aside className="sidebar">
-              <Link className="brand" href="/">
-                <span className="brand-mark">c</span>
-                <span className="brand-name"><b>cookingbot</b><small>Familienküche</small></span>
-              </Link>
-              <nav className="side-nav" aria-label="Hauptnavigation">
-                <Link href="/">Heute</Link>
-                <Link href="/recipes">Rezepte</Link>
-                <Link href="/planner">Wochenplan</Link>
-                <Link href="/shopping">Einkauf</Link>
-              </nav>
-              <form className="sidebar-footer" action="/api/auth/logout" method="post"><button type="submit">Logout</button></form>
-            </aside>
-            <header className="topbar">
-              <Link className="brand compact" href="/"><span className="brand-mark">c</span><span className="brand-name"><b>cookingbot</b></span></Link>
-            </header>
-            <main className="main">{children}</main>
-            <nav className="tabbar" aria-label="Mobile Navigation">
-              <Link href="/">Heute</Link>
-              <Link href="/recipes">Rezepte</Link>
-              <Link href="/planner">Plan</Link>
-              <Link href="/shopping">Einkauf</Link>
-            </nav>
+          <div className="app">
+            <Sidebar counts={counts} />
+            <main className="main">
+              <Topbar />
+              {children}
+            </main>
+            <MobileTabbar />
           </div>
         ) : (
-          <main className="auth-shell">{children}</main>
+          <main className="login-stage">{children}</main>
         )}
       </body>
     </html>
