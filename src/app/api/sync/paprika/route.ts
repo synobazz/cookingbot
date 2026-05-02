@@ -1,71 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { syncRecipesFromPaprika } from "@/lib/paprika";
+import { syncRecipesFromPaprika, type PaprikaRecipe } from "@/lib/paprika";
 import { appUrl } from "@/lib/redirect";
+
+const SETTING_LAST_SYNC = "lastPaprikaSync";
+
+function recipeData(recipe: PaprikaRecipe) {
+  return {
+    hash: recipe.hash,
+    name: recipe.name || "Unbenanntes Rezept",
+    description: recipe.description || "",
+    ingredients: recipe.ingredients || "",
+    directions: recipe.directions || "",
+    notes: recipe.notes || "",
+    servings: recipe.servings || "",
+    prepTime: recipe.prep_time || "",
+    cookTime: recipe.cook_time || "",
+    totalTime: recipe.total_time || "",
+    difficulty: recipe.difficulty || "",
+    rating: recipe.rating || 0,
+    categoriesJson: JSON.stringify(recipe.categories || []),
+    source: recipe.source || "",
+    sourceUrl: recipe.source_url || "",
+    imageUrl: recipe.image_url || "",
+    photo: recipe.photo || "",
+    photoLarge: recipe.photo_large || "",
+    photoHash: recipe.photo_hash || "",
+    photoUrl: recipe.photo_url || "",
+    inTrash: Boolean(recipe.in_trash),
+    onFavorites: Boolean(recipe.on_favorites),
+  };
+}
 
 export async function POST(req: NextRequest) {
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   try {
-    let upserted = 0;
+    // Pre-load existing hashes so we can skip unchanged recipes entirely.
+    const existing = new Map<string, string | null>();
+    const stored = await prisma.recipe.findMany({ select: { paprikaUid: true, hash: true } });
+    for (const r of stored) existing.set(r.paprikaUid, r.hash);
+
     const result = await syncRecipesFromPaprika(async (recipe) => {
+      const data = recipeData(recipe);
       await prisma.recipe.upsert({
         where: { paprikaUid: recipe.uid },
-        create: {
-          paprikaUid: recipe.uid,
-          hash: recipe.hash,
-          name: recipe.name || "Unbenanntes Rezept",
-          description: recipe.description || "",
-          ingredients: recipe.ingredients || "",
-          directions: recipe.directions || "",
-          notes: recipe.notes || "",
-          servings: recipe.servings || "",
-          prepTime: recipe.prep_time || "",
-          cookTime: recipe.cook_time || "",
-          totalTime: recipe.total_time || "",
-          difficulty: recipe.difficulty || "",
-          rating: recipe.rating || 0,
-          categoriesJson: JSON.stringify(recipe.categories || []),
-          source: recipe.source || "",
-          sourceUrl: recipe.source_url || "",
-          imageUrl: recipe.image_url || "",
-          photo: recipe.photo || "",
-          photoLarge: recipe.photo_large || "",
-          photoHash: recipe.photo_hash || "",
-          photoUrl: recipe.photo_url || "",
-          inTrash: Boolean(recipe.in_trash),
-          onFavorites: Boolean(recipe.on_favorites),
-        },
-        update: {
-          hash: recipe.hash,
-          name: recipe.name || "Unbenanntes Rezept",
-          description: recipe.description || "",
-          ingredients: recipe.ingredients || "",
-          directions: recipe.directions || "",
-          notes: recipe.notes || "",
-          servings: recipe.servings || "",
-          prepTime: recipe.prep_time || "",
-          cookTime: recipe.cook_time || "",
-          totalTime: recipe.total_time || "",
-          difficulty: recipe.difficulty || "",
-          rating: recipe.rating || 0,
-          categoriesJson: JSON.stringify(recipe.categories || []),
-          source: recipe.source || "",
-          sourceUrl: recipe.source_url || "",
-          imageUrl: recipe.image_url || "",
-          photo: recipe.photo || "",
-          photoLarge: recipe.photo_large || "",
-          photoHash: recipe.photo_hash || "",
-          photoUrl: recipe.photo_url || "",
-          inTrash: Boolean(recipe.in_trash),
-          onFavorites: Boolean(recipe.on_favorites),
-          lastSyncedAt: new Date(),
-        },
+        create: { paprikaUid: recipe.uid, ...data },
+        update: { ...data, lastSyncedAt: new Date() },
       });
-      upserted += 1;
+    }, { existingHashes: existing });
+
+    await prisma.appSetting.upsert({
+      where: { key: SETTING_LAST_SYNC },
+      create: { key: SETTING_LAST_SYNC, value: new Date().toISOString() },
+      update: { value: new Date().toISOString() },
     });
-    await prisma.appSetting.upsert({ where: { key: "lastPaprikaSync" }, create: { key: "lastPaprikaSync", value: new Date().toISOString() }, update: { value: new Date().toISOString() } });
-    return NextResponse.redirect(appUrl(req, `/recipes?synced=${upserted}&listed=${result.listed}`), 303);
+
+    const params = new URLSearchParams({
+      synced: String(result.fetched),
+      listed: String(result.listed),
+      skipped: String(result.skipped),
+    });
+    if (result.failed) params.set("failed", String(result.failed));
+    return NextResponse.redirect(appUrl(req, `/recipes?${params.toString()}`), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Sync failed";
     return NextResponse.redirect(appUrl(req, `/recipes?error=${encodeURIComponent(message)}`), 303);

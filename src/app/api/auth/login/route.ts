@@ -7,8 +7,15 @@ const MAX_ATTEMPTS = 8;
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
 function clientKey(req: NextRequest) {
-  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || req.headers.get("x-real-ip") || "local";
+  // Only honour proxy headers when explicitly trusted, otherwise an attacker
+  // could spoof X-Forwarded-For per request to dodge the rate limit.
+  if (process.env.TRUST_PROXY === "true") {
+    const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    if (forwarded) return forwarded;
+    const real = req.headers.get("x-real-ip");
+    if (real) return real;
+  }
+  return "local";
 }
 
 function isLimited(key: string) {
@@ -26,6 +33,9 @@ function recordFailure(key: string) {
     return;
   }
   current.count += 1;
+  // Sliding window: extend the lockout each time so distributed attempts
+  // can't keep the window from rolling.
+  current.resetAt = now + WINDOW_MS;
 }
 
 export async function POST(req: NextRequest) {

@@ -1,8 +1,13 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { sessionSecret } from "@/lib/env";
 
+/**
+ * AES-256-GCM key for at-rest encryption of secrets (Microsoft refresh tokens
+ * etc.). Derived from APP_SESSION_SECRET. Rotating that secret will invalidate
+ * existing ciphertexts — users will need to reconnect Microsoft. Documented.
+ */
 function key() {
-  const secret = process.env.APP_SESSION_SECRET || "dev-only-insecure-session-secret";
-  return createHash("sha256").update(secret).digest();
+  return createHash("sha256").update(sessionSecret({ allowDev: true })).digest();
 }
 
 export function encrypt(value: string) {

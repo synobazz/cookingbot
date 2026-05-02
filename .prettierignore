@@ -1,0 +1,6 @@
+.next/
+node_modules/
+prisma/dev.db*
+package-lock.json
+public/
+docs/

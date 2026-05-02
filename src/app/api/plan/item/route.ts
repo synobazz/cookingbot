@@ -6,6 +6,11 @@ import { getOpenAIClient, remixModel } from "@/lib/llm";
 import { containsUnsafeDinnerText, isUnsafeDinnerRecipe, recipeForPrompt } from "@/lib/planning";
 import { appUrl } from "@/lib/redirect";
 
+const InputSchema = z.object({
+  itemId: z.string().min(1),
+  action: z.enum(["replan", "remix"]),
+});
+
 const RemixSchema = z.object({
   title: z.string().min(1),
   reasoning: z.string().optional().default(""),
@@ -25,8 +30,12 @@ export async function POST(req: NextRequest) {
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
 
   const form = await req.formData();
-  const itemId = String(form.get("itemId") || "");
-  const action = String(form.get("action") || "");
+  const parsed = InputSchema.safeParse({
+    itemId: String(form.get("itemId") || ""),
+    action: String(form.get("action") || ""),
+  });
+  if (!parsed.success) return plannerRedirect(req, undefined, "Ungültige Eingabe");
+  const { itemId, action } = parsed.data;
   const item = await prisma.mealItem.findUnique({ where: { id: itemId }, include: { mealPlan: { include: { items: true } }, recipe: true } });
   if (!item) return plannerRedirect(req, undefined, "Gericht nicht gefunden");
 
@@ -34,8 +43,8 @@ export async function POST(req: NextRequest) {
     const usedRecipeIds = new Set(item.mealPlan.items.map((meal) => meal.recipeId).filter(Boolean));
     const candidates = (await prisma.recipe.findMany({ where: { inTrash: false, excludeFromPlanning: false }, orderBy: [{ onFavorites: "desc" }, { rating: "desc" }, { updatedAt: "desc" }], take: 160 }))
       .filter((recipe) => !isUnsafeDinnerRecipe(recipe) && recipe.id !== item.recipeId && !usedRecipeIds.has(recipe.id));
+    if (!candidates.length) return plannerRedirect(req, item.mealPlanId, "Kein alternatives abendessentaugliches Rezept gefunden", item.id);
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    if (!pick) return plannerRedirect(req, item.mealPlanId, "Kein alternatives abendessentaugliches Rezept gefunden", item.id);
     await prisma.mealItem.update({
       where: { id: item.id },
       data: {
@@ -58,7 +67,7 @@ export async function POST(req: NextRequest) {
     try {
       const client = getOpenAIClient();
       const response = await client.chat.completions.create({
-        model: remixModel,
+        model: remixModel(),
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "Du bist eine kreative, familienfreundliche Kochhilfe. Antworte ausschließlich als valides JSON. Erzeuge einen kindertauglichen Abendessen-Remix. Keine alkoholischen Getränke, Cocktails, Drinks, reine Desserts oder Snacks." },

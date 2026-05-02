@@ -1,10 +1,16 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { exchangeMicrosoftCode, saveMicrosoftConnection } from "@/lib/microsoft";
 import { appUrl } from "@/lib/redirect";
 
 export async function GET(req: NextRequest) {
-  const url = appUrl(req, req.url);
+  // Require an authenticated session — the OAuth state cookie alone isn't
+  // sufficient: it only guarantees this browser initiated *some* flow,
+  // not that the operator actually intended to (re)bind a Microsoft account.
+  if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
+
+  const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error_description") || url.searchParams.get("error");
