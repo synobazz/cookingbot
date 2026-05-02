@@ -5,7 +5,7 @@ import { appUrl } from "@/lib/redirect";
 
 export async function POST(req: NextRequest) {
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
-  const recipes = await prisma.recipe.findMany({ where: { inTrash: false }, orderBy: [{ onFavorites: "desc" }, { rating: "desc" }, { updatedAt: "desc" }], take: 12 });
+  const recipes = await prisma.recipe.findMany({ where: { inTrash: false, excludeFromPlanning: false }, orderBy: [{ onFavorites: "desc" }, { rating: "desc" }, { updatedAt: "desc" }], take: 12 });
   const suggestion = recipes[Math.floor(Math.random() * Math.max(recipes.length, 1))];
   if (!suggestion) return NextResponse.json({ error: "Keine Rezepte vorhanden" }, { status: 400 });
   const plan = await prisma.mealPlan.create({

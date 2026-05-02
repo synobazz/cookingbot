@@ -176,3 +176,5 @@ form[data-submitting="true"] .loading-note { display: inline-flex; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+.recipe-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.recipe-card-actions form { display: inline-flex; }

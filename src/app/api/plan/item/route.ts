@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { getOpenAIClient, model } from "@/lib/llm";
+import { getOpenAIClient, remixModel } from "@/lib/llm";
 import { containsUnsafeDinnerText, isUnsafeDinnerRecipe, recipeForPrompt } from "@/lib/planning";
 import { appUrl } from "@/lib/redirect";
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   if (action === "replan") {
     const usedRecipeIds = new Set(item.mealPlan.items.map((meal) => meal.recipeId).filter(Boolean));
-    const candidates = (await prisma.recipe.findMany({ where: { inTrash: false }, orderBy: [{ onFavorites: "desc" }, { rating: "desc" }, { updatedAt: "desc" }], take: 160 }))
+    const candidates = (await prisma.recipe.findMany({ where: { inTrash: false, excludeFromPlanning: false }, orderBy: [{ onFavorites: "desc" }, { rating: "desc" }, { updatedAt: "desc" }], take: 160 }))
       .filter((recipe) => !isUnsafeDinnerRecipe(recipe) && recipe.id !== item.recipeId && !usedRecipeIds.has(recipe.id));
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
     if (!pick) return plannerRedirect(req, item.mealPlanId, "Kein alternatives abendessentaugliches Rezept gefunden");
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     try {
       const client = getOpenAIClient();
       const response = await client.chat.completions.create({
-        model,
+        model: remixModel,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: "Du bist eine kreative, familienfreundliche Kochhilfe. Antworte ausschließlich als valides JSON. Erzeuge einen kindertauglichen Abendessen-Remix. Keine alkoholischen Getränke, Cocktails, Drinks, reine Desserts oder Snacks." },

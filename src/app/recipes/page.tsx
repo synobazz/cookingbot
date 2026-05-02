@@ -32,13 +32,19 @@ export default async function RecipesPage({ searchParams }: { searchParams: Prom
               </div>
               <div className="recipe-card-header">
                 <span className="badge">{recipe.rating ? "★".repeat(recipe.rating) : "unbewertet"}</span>
-                {isUnsafeDinnerRecipe(recipe) ? <span className="badge warning-badge">nicht für Abendplanung</span> : null}
+                {(isUnsafeDinnerRecipe(recipe) || recipe.excludeFromPlanning) ? <span className="badge warning-badge">nicht für Abendplanung</span> : null}
               </div>
               <div className="recipe-card-content">
                 <h3>{recipe.name}</h3>
                 <p>{[recipe.prepTime, recipe.cookTime, recipe.servings].filter(Boolean).join(" · ") || "Keine Zeitangabe"}</p>
                 <div className="recipe-category-row">{categories.slice(0, 3).map((c) => <span className="badge" key={c}>{c}</span>)}</div>
-                <div className="recipe-card-actions"><RecipeDetails recipe={recipe} /></div>
+                <div className="recipe-card-actions">
+                  <RecipeDetails recipe={recipe} />
+                  <form action="/api/recipes/toggle-planning" method="post">
+                    <input type="hidden" name="recipeId" value={recipe.id} />
+                    <button className="button secondary recipe-open-button" type="submit">{recipe.excludeFromPlanning ? "Einplanen erlauben" : "Ausschließen"}</button>
+                  </form>
+                </div>
               </div>
             </article>
           );

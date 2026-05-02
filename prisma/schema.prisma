@@ -30,6 +30,7 @@ model Recipe {
   photoLarge     String?   @default("")
   photoHash      String?   @default("")
   photoUrl       String?   @default("")
+  excludeFromPlanning Boolean @default(false)
   inTrash        Boolean   @default(false)
   onFavorites    Boolean   @default(false)
   lastSyncedAt   DateTime  @default(now())

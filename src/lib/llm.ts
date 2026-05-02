@@ -9,4 +9,5 @@ export function getOpenAIClient() {
   });
 }
 
-export const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+export const plannerModel = process.env.OPENAI_PLANNER_MODEL || process.env.OPENAI_MODEL || "gpt-5.4-mini";
+export const remixModel = process.env.OPENAI_REMIX_MODEL || process.env.OPENAI_MODEL || "gpt-5.5";
