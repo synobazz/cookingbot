@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 type RecipeLike = {
   name: string;
@@ -37,6 +37,8 @@ function imageFor(recipe?: RecipeLike | null) {
 export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInstructions }: { recipe?: RecipeLike | null; title?: string; fallbackIngredients?: string; fallbackInstructions?: string }) {
   const [open, setOpen] = useState(false);
   const headingId = useId();
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const displayTitle = title || recipe?.name || "Rezept";
   const ingredients = cleanRecipeText(fallbackIngredients || recipe?.ingredients);
   const directions = cleanRecipeText(fallbackInstructions || recipe?.directions);
@@ -49,12 +51,27 @@ export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInst
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Tab") return;
+      const modal = closeButtonRef.current?.closest(".recipe-modal");
+      const focusable = Array.from(modal?.querySelectorAll<HTMLElement>('button, a[href], textarea, input, select, [tabindex]:not([tabindex="-1"])') || []).filter((element) => !element.hasAttribute("disabled"));
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+    closeButtonRef.current?.focus();
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", onKey);
+      openButtonRef.current?.focus();
     };
   }, [open]);
 
@@ -62,12 +79,12 @@ export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInst
 
   return (
     <>
-      <button className="button secondary recipe-open-button" type="button" onClick={() => setOpen(true)}>Rezept anzeigen</button>
+      <button ref={openButtonRef} className="button secondary recipe-open-button" type="button" onClick={() => setOpen(true)}>Rezept anzeigen</button>
       {open ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <section className="recipe-modal" role="dialog" aria-modal="true" aria-labelledby={headingId}>
-            <button className="modal-close" type="button" aria-label="Rezept schließen" onClick={() => setOpen(false)}>×</button>
-            {image ? <img className="recipe-hero-image" src={image} alt="" /> : null}
+            <button ref={closeButtonRef} className="modal-close" type="button" aria-label="Rezept schließen" onClick={() => setOpen(false)}>×</button>
+            {image ? <img className="recipe-hero-image" src={image} alt="" decoding="async" /> : null}
             <div className="recipe-modal-content">
               <div className="eyebrow">Rezept</div>
               <h2 id={headingId}>{displayTitle}</h2>

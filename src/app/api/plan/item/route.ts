@@ -53,23 +53,29 @@ export async function POST(req: NextRequest) {
   if (action === "remix") {
     const sourceRecipe = item.recipe;
     if (!sourceRecipe && !item.ingredients) return plannerRedirect(req, item.mealPlanId, "Für dieses Gericht fehlen Rezeptdaten zum Remixen");
-    const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
-      model,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: "Du bist eine kreative, familienfreundliche Kochhilfe. Antworte ausschließlich als valides JSON. Erzeuge einen kindertauglichen Abendessen-Remix. Keine alkoholischen Getränke, Cocktails, Drinks, reine Desserts oder Snacks." },
-        { role: "user", content: JSON.stringify({
-          task: "Mach aus diesem Rezept einen coolen, aber realistisch kochbaren Remix fürs Abendessen.",
-          household: "2 Erwachsene und ein 5-jähriges Kind",
-          rules: ["keine alkoholischen Zutaten/Drinks", "familien- und kindertauglich", "konkrete Zutaten und kurze Kochanleitung liefern", "nicht zu experimentell"],
-          outputSchema: { title: "string", reasoning: "short German reason", ingredients: "newline-separated ingredients", instructions: "short German instructions" },
-          source: sourceRecipe ? recipeForPrompt(sourceRecipe) : { name: item.title, ingredients: item.ingredients, instructions: item.instructions },
-        }) },
-      ],
-    });
-    const raw = response.choices[0]?.message?.content || "{}";
-    const remix = RemixSchema.parse(JSON.parse(raw));
+    let remix: z.infer<typeof RemixSchema>;
+    try {
+      const client = getOpenAIClient();
+      const response = await client.chat.completions.create({
+        model,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: "Du bist eine kreative, familienfreundliche Kochhilfe. Antworte ausschließlich als valides JSON. Erzeuge einen kindertauglichen Abendessen-Remix. Keine alkoholischen Getränke, Cocktails, Drinks, reine Desserts oder Snacks." },
+          { role: "user", content: JSON.stringify({
+            task: "Mach aus diesem Rezept einen coolen, aber realistisch kochbaren Remix fürs Abendessen.",
+            household: "2 Erwachsene und ein 5-jähriges Kind",
+            rules: ["keine alkoholischen Zutaten/Drinks", "familien- und kindertauglich", "konkrete Zutaten und kurze Kochanleitung liefern", "nicht zu experimentell"],
+            outputSchema: { title: "string", reasoning: "short German reason", ingredients: "newline-separated ingredients", instructions: "short German instructions" },
+            source: sourceRecipe ? recipeForPrompt(sourceRecipe) : { name: item.title, ingredients: item.ingredients, instructions: item.instructions },
+          }) },
+        ],
+      });
+      const raw = response.choices[0]?.message?.content || "{}";
+      remix = RemixSchema.parse(JSON.parse(raw));
+    } catch (error) {
+      console.error("remix generation failed", error);
+      return plannerRedirect(req, item.mealPlanId, "Remix konnte nicht erstellt werden");
+    }
     if (containsUnsafeDinnerText(`${remix.title} ${remix.reasoning} ${remix.ingredients}`)) {
       return plannerRedirect(req, item.mealPlanId, "Remix wurde blockiert, weil er nicht kindertauglich wirkt");
     }

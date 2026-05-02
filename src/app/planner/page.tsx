@@ -51,15 +51,18 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
                   <p>{item.reasoning}</p>
                   <div className="meal-actions">
                     <RecipeDetails recipe={item.isRemix ? null : item.recipe} title={item.title} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
+                    {item.isRemix && item.remixSource ? <span className="badge">Remix von: {item.remixSource}</span> : null}
                     <form action="/api/plan/item" method="post">
                       <input type="hidden" name="itemId" value={item.id} />
                       <input type="hidden" name="action" value="replan" />
-                      <button className="button secondary" type="submit">Replan</button>
+                      <button className="button secondary" type="submit">Neu planen</button>
+                      <p className="loading-note"><span className="spinner" /> Neues Gericht wird gesucht…</p>
                     </form>
                     <form action="/api/plan/item" method="post">
                       <input type="hidden" name="itemId" value={item.id} />
                       <input type="hidden" name="action" value="remix" />
-                      <button className="button secondary" type="submit">Remix</button>
+                      <button className="button secondary" type="submit">Remixen</button>
+                      <p className="loading-note"><span className="spinner" /> Remix wird gekocht…</p>
                     </form>
                   </div>
                 </div>
