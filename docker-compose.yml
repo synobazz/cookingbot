@@ -5,8 +5,20 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    env_file:
-      - .env
+    environment:
+      APP_BASE_URL: ${APP_BASE_URL:?Set APP_BASE_URL in Portainer stack environment variables}
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:?Set APP_SESSION_SECRET in Portainer stack environment variables}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?Set APP_ADMIN_PASSWORD in Portainer stack environment variables}
+      DATABASE_URL: file:/data/cookingbot.db
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in Portainer stack environment variables}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      PAPRIKA_EMAIL: ${PAPRIKA_EMAIL:-}
+      PAPRIKA_PASSWORD: ${PAPRIKA_PASSWORD:-}
+      PAPRIKA_API_BASE: ${PAPRIKA_API_BASE:-https://www.paprikaapp.com/api}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-consumers}
     volumes:
       - cookingbot-data:/data
 
