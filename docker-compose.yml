@@ -11,7 +11,9 @@ services:
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?Set APP_ADMIN_PASSWORD in Portainer stack environment variables}
       DATABASE_URL: file:/data/cookingbot.db
       OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in Portainer stack environment variables}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_PLANNER_MODEL: ${OPENAI_PLANNER_MODEL:-gpt-5.4-mini}
+      OPENAI_REMIX_MODEL: ${OPENAI_REMIX_MODEL:-gpt-5.5}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       PAPRIKA_EMAIL: ${PAPRIKA_EMAIL:-}
       PAPRIKA_PASSWORD: ${PAPRIKA_PASSWORD:-}
