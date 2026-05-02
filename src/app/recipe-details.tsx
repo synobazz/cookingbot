@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { RecipeImage } from "./recipe-image";
 
 type RecipeLike = {
+  id?: string | null;
   name: string;
   description?: string | null;
   ingredients?: string | null;
@@ -28,12 +30,6 @@ function cleanRecipeText(value?: string | null) {
     .trim();
 }
 
-function imageFor(recipe?: RecipeLike | null) {
-  const url = recipe?.photoUrl || recipe?.imageUrl || "";
-  if (/^(https?:|data:image\/)/.test(url)) return url;
-  return "";
-}
-
 export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInstructions }: { recipe?: RecipeLike | null; title?: string; fallbackIngredients?: string; fallbackInstructions?: string }) {
   const [open, setOpen] = useState(false);
   const headingId = useId();
@@ -44,7 +40,7 @@ export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInst
   const directions = cleanRecipeText(fallbackInstructions || recipe?.directions);
   const notes = cleanRecipeText(recipe?.notes);
   const description = cleanRecipeText(recipe?.description);
-  const image = imageFor(recipe);
+  const hasImage = Boolean(recipe?.photoUrl || recipe?.imageUrl || recipe?.id);
   const meta = [recipe?.servings, recipe?.prepTime, recipe?.cookTime, recipe?.totalTime].filter(Boolean).join(" · ");
 
   useEffect(() => {
@@ -75,7 +71,7 @@ export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInst
     };
   }, [open]);
 
-  if (!ingredients && !directions && !notes && !description && !image) return null;
+  if (!ingredients && !directions && !notes && !description && !hasImage) return null;
 
   return (
     <>
@@ -85,7 +81,7 @@ export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInst
           <section className="recipe-modal" role="dialog" aria-modal="true" aria-labelledby={headingId}>
             <button ref={closeButtonRef} className="modal-close" type="button" aria-label="Rezept schließen" onClick={() => setOpen(false)}>×</button>
             <div className="recipe-modal-hero">
-              {image ? <img className="recipe-hero-image" src={image} alt="" decoding="async" /> : <div className="recipe-hero-placeholder">🍲</div>}
+              <RecipeImage recipeId={recipe?.id} className="recipe-hero-image" placeholderClassName="recipe-hero-placeholder" priority />
             </div>
             <div className="recipe-modal-content">
               <div className="recipe-modal-title">

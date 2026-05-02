@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { displayCategories, isUnsafeDinnerRecipe, safeJson } from "@/lib/planning";
 import { RecipeDetails } from "../recipe-details";
+import { RecipeImage } from "../recipe-image";
 
 export default async function RecipesPage({ searchParams }: { searchParams: Promise<{ error?: string; synced?: string }> }) {
   if (!(await requireAuth())) redirect("/login");
@@ -27,7 +28,7 @@ export default async function RecipesPage({ searchParams }: { searchParams: Prom
           return (
             <article className="card recipe-card" key={recipe.id}>
               <div className="recipe-card-media">
-                {(recipe.photoUrl || recipe.imageUrl) ? <img className="recipe-card-image" src={recipe.photoUrl || recipe.imageUrl || ""} alt="" loading="lazy" decoding="async" /> : <div className="recipe-card-placeholder">🍲</div>}
+                <RecipeImage recipeId={recipe.id} className="recipe-card-image" />
               </div>
               <div className="recipe-card-header">
                 <span className="badge">{recipe.rating ? "★".repeat(recipe.rating) : "unbewertet"}</span>

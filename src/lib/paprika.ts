@@ -22,6 +22,9 @@ export type PaprikaRecipe = {
   source?: string;
   source_url?: string;
   image_url?: string;
+  photo?: string | null;
+  photo_large?: string | null;
+  photo_hash?: string | null;
   photo_url?: string | null;
   in_trash?: boolean;
   on_favorites?: boolean;
