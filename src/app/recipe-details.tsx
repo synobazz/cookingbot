@@ -23,7 +23,7 @@ function cleanRecipeText(value?: string | null) {
   return value
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
-    .filter((line) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:-\d+-\d+)?$/i.test(line.trim()))
+    .filter((line) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:-\d+-\d+)?$/i.test(line.trim()))
     .join("\n")
     .trim();
 }
