@@ -9,7 +9,7 @@ const days = [
   ["monday", "Mo"], ["tuesday", "Di"], ["wednesday", "Mi"], ["thursday", "Do"], ["friday", "Fr"], ["saturday", "Sa"], ["sunday", "So"],
 ];
 
-export default async function PlannerPage({ searchParams }: { searchParams: Promise<{ error?: string; plan?: string; today?: string }> }) {
+export default async function PlannerPage({ searchParams }: { searchParams: Promise<{ error?: string; exported?: string; plan?: string; today?: string }> }) {
   if (!(await requireAuth())) redirect("/login");
   const params = await searchParams;
   const plans = await prisma.mealPlan.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { items: { include: { recipe: true } } } });
@@ -20,6 +20,7 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
         <div className="eyebrow">LLM Wochenplanung</div>
         <h1>Plan generieren</h1>
         {params.error ? <p style={{ color: "#b91c1c" }}>Plan konnte nicht erzeugt werden: {decodeURIComponent(params.error)}</p> : null}
+        {params.exported === "paprika" ? <p style={{ color: "#1f3a2e" }}>Remix wurde nach Paprika exportiert.</p> : null}
         <p className="muted">Die KI-Planung kann je nach Rezeptmenge 1–2 Minuten dauern.</p>
         <form className="form" method="post" action="/api/plan/generate">
           <div className="grid cols-2">
@@ -45,13 +46,20 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
             <h2>{plan.title}</h2>
             <div className="grid cols-3">
               {plan.items.map((item) => (
-                <div className="card tight meal" key={item.id}>
+                <div className="card tight meal" id={`meal-${item.id}`} key={item.id}>
                   <span className="badge">{dayLabel(item.dayName)}</span>
                   <h3>{item.title}</h3>
                   <p>{item.reasoning}</p>
                   <div className="meal-actions">
                     <RecipeDetails recipe={item.isRemix ? null : item.recipe} title={item.title} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
                     {item.isRemix && item.remixSource ? <span className="badge">Remix von: {item.remixSource}</span> : null}
+                    {item.isRemix && item.ingredients && item.instructions ? (
+                      <form action="/api/paprika/export-remix" method="post">
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <button className="button secondary" type="submit">Nach Paprika exportieren</button>
+                        <p className="loading-note"><span className="spinner" /> Export nach Paprika läuft…</p>
+                      </form>
+                    ) : null}
                     <form action="/api/plan/item" method="post">
                       <input type="hidden" name="itemId" value={item.id} />
                       <input type="hidden" name="action" value="replan" />

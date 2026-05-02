@@ -13,11 +13,12 @@ const RemixSchema = z.object({
   instructions: z.string().optional().default(""),
 });
 
-function plannerRedirect(req: NextRequest, planId?: string, error?: string) {
+function plannerRedirect(req: NextRequest, planId?: string, error?: string, itemId?: string) {
   const params = new URLSearchParams();
   if (planId) params.set("plan", planId);
   if (error) params.set("error", error);
-  return NextResponse.redirect(appUrl(req, `/planner${params.size ? `?${params.toString()}` : ""}`), 303);
+  const hash = itemId ? `#meal-${itemId}` : "";
+  return NextResponse.redirect(appUrl(req, `/planner${params.size ? `?${params.toString()}` : ""}${hash}`), 303);
 }
 
 export async function POST(req: NextRequest) {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     const candidates = (await prisma.recipe.findMany({ where: { inTrash: false, excludeFromPlanning: false }, orderBy: [{ onFavorites: "desc" }, { rating: "desc" }, { updatedAt: "desc" }], take: 160 }))
       .filter((recipe) => !isUnsafeDinnerRecipe(recipe) && recipe.id !== item.recipeId && !usedRecipeIds.has(recipe.id));
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    if (!pick) return plannerRedirect(req, item.mealPlanId, "Kein alternatives abendessentaugliches Rezept gefunden");
+    if (!pick) return plannerRedirect(req, item.mealPlanId, "Kein alternatives abendessentaugliches Rezept gefunden", item.id);
     await prisma.mealItem.update({
       where: { id: item.id },
       data: {
@@ -47,12 +48,12 @@ export async function POST(req: NextRequest) {
         instructions: "",
       },
     });
-    return plannerRedirect(req, item.mealPlanId);
+    return plannerRedirect(req, item.mealPlanId, undefined, item.id);
   }
 
   if (action === "remix") {
     const sourceRecipe = item.recipe;
-    if (!sourceRecipe && !item.ingredients) return plannerRedirect(req, item.mealPlanId, "Für dieses Gericht fehlen Rezeptdaten zum Remixen");
+    if (!sourceRecipe && !item.ingredients) return plannerRedirect(req, item.mealPlanId, "Für dieses Gericht fehlen Rezeptdaten zum Remixen", item.id);
     let remix: z.infer<typeof RemixSchema>;
     try {
       const client = getOpenAIClient();
@@ -74,10 +75,10 @@ export async function POST(req: NextRequest) {
       remix = RemixSchema.parse(JSON.parse(raw));
     } catch (error) {
       console.error("remix generation failed", error);
-      return plannerRedirect(req, item.mealPlanId, "Remix konnte nicht erstellt werden");
+      return plannerRedirect(req, item.mealPlanId, "Remix konnte nicht erstellt werden", item.id);
     }
     if (containsUnsafeDinnerText(`${remix.title} ${remix.reasoning} ${remix.ingredients}`)) {
-      return plannerRedirect(req, item.mealPlanId, "Remix wurde blockiert, weil er nicht kindertauglich wirkt");
+      return plannerRedirect(req, item.mealPlanId, "Remix wurde blockiert, weil er nicht kindertauglich wirkt", item.id);
     }
     await prisma.mealItem.update({
       where: { id: item.id },
@@ -90,8 +91,8 @@ export async function POST(req: NextRequest) {
         instructions: remix.instructions,
       },
     });
-    return plannerRedirect(req, item.mealPlanId);
+    return plannerRedirect(req, item.mealPlanId, undefined, item.id);
   }
 
-  return plannerRedirect(req, item.mealPlanId, "Unbekannte Aktion");
+  return plannerRedirect(req, item.mealPlanId, "Unbekannte Aktion", item.id);
 }

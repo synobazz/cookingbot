@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { RecipeImage } from "./recipe-image";
 
 type RecipeLike = {
@@ -32,6 +33,7 @@ function cleanRecipeText(value?: string | null) {
 
 export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInstructions }: { recipe?: RecipeLike | null; title?: string; fallbackIngredients?: string; fallbackInstructions?: string }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const headingId = useId();
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -42,6 +44,8 @@ export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInst
   const description = cleanRecipeText(recipe?.description);
   const hasImage = Boolean(recipe?.photoUrl || recipe?.imageUrl || recipe?.id);
   const meta = [recipe?.servings, recipe?.prepTime, recipe?.cookTime, recipe?.totalTime].filter(Boolean).join(" · ");
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -73,33 +77,36 @@ export function RecipeDetails({ recipe, title, fallbackIngredients, fallbackInst
 
   if (!ingredients && !directions && !notes && !description && !hasImage) return null;
 
+  const modal = open && mounted ? createPortal(
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+      <section className="recipe-modal" role="dialog" aria-modal="true" aria-labelledby={headingId}>
+        <button ref={closeButtonRef} className="modal-close" type="button" aria-label="Rezept schließen" onClick={() => setOpen(false)}>×</button>
+        <div className="recipe-modal-hero">
+          <RecipeImage recipeId={recipe?.id} className="recipe-hero-image" placeholderClassName="recipe-hero-placeholder" priority />
+        </div>
+        <div className="recipe-modal-content">
+          <div className="recipe-modal-title">
+            <div className="eyebrow">Rezept</div>
+            <h2 id={headingId}>{displayTitle}</h2>
+            {meta ? <p className="muted">{meta}</p> : null}
+            {description ? <p>{description}</p> : null}
+          </div>
+          <div className="recipe-body">
+            {ingredients ? <section className="recipe-panel ingredients"><h4>Zutaten</h4><pre>{ingredients}</pre></section> : null}
+            {directions ? <section className="recipe-panel"><h4>Zubereitung</h4><pre>{directions}</pre></section> : null}
+            {notes ? <section className="recipe-panel full"><h4>Notizen</h4><pre>{notes}</pre></section> : null}
+          </div>
+          {recipe?.sourceUrl ? <p className="recipe-source-row"><a className="badge" href={recipe.sourceUrl} target="_blank" rel="noreferrer">Quelle öffnen</a></p> : null}
+        </div>
+      </section>
+    </div>,
+    document.body,
+  ) : null;
+
   return (
     <>
       <button ref={openButtonRef} className="button secondary recipe-open-button" type="button" onClick={() => setOpen(true)}>Rezept öffnen</button>
-      {open ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
-          <section className="recipe-modal" role="dialog" aria-modal="true" aria-labelledby={headingId}>
-            <button ref={closeButtonRef} className="modal-close" type="button" aria-label="Rezept schließen" onClick={() => setOpen(false)}>×</button>
-            <div className="recipe-modal-hero">
-              <RecipeImage recipeId={recipe?.id} className="recipe-hero-image" placeholderClassName="recipe-hero-placeholder" priority />
-            </div>
-            <div className="recipe-modal-content">
-              <div className="recipe-modal-title">
-                <div className="eyebrow">Rezept</div>
-                <h2 id={headingId}>{displayTitle}</h2>
-                {meta ? <p className="muted">{meta}</p> : null}
-                {description ? <p>{description}</p> : null}
-              </div>
-              <div className="recipe-body">
-                {ingredients ? <section className="recipe-panel ingredients"><h4>Zutaten</h4><pre>{ingredients}</pre></section> : null}
-                {directions ? <section className="recipe-panel"><h4>Zubereitung</h4><pre>{directions}</pre></section> : null}
-                {notes ? <section className="recipe-panel full"><h4>Notizen</h4><pre>{notes}</pre></section> : null}
-              </div>
-              {recipe?.sourceUrl ? <p className="recipe-source-row"><a className="badge" href={recipe.sourceUrl} target="_blank" rel="noreferrer">Quelle öffnen</a></p> : null}
-            </div>
-          </section>
-        </div>
-      ) : null}
+      {modal}
     </>
   );
 }

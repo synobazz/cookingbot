@@ -1,4 +1,5 @@
 import { gzipSync } from "node:zlib";
+import { createHash, randomUUID } from "node:crypto";
 
 const API_BASE = process.env.PAPRIKA_API_BASE || "https://www.paprikaapp.com/api";
 
@@ -72,6 +73,53 @@ export async function listRecipeHashes(token: string) {
 
 export async function getRecipe(token: string, uid: string) {
   return paprikaGet<PaprikaRecipe>(`/v2/sync/recipe/${uid}/`, token);
+}
+
+function recipeHash(recipe: Record<string, unknown>) {
+  const withoutHash = { ...recipe };
+  delete withoutHash.hash;
+  return createHash("sha256").update(JSON.stringify(withoutHash, Object.keys(withoutHash).sort())).digest("hex");
+}
+
+export async function createRecipeInPaprika(input: { name: string; ingredients: string; directions: string; notes?: string; source?: string; categories?: string[] }) {
+  const token = await loginToPaprika();
+  const uid = randomUUID().toUpperCase();
+  const recipe: Record<string, unknown> = {
+    uid,
+    name: input.name,
+    description: "",
+    ingredients: input.ingredients,
+    directions: input.directions,
+    notes: input.notes || "",
+    servings: "",
+    prep_time: "",
+    cook_time: "",
+    total_time: "",
+    difficulty: "",
+    rating: 0,
+    categories: input.categories || ["Cookingbot", "Remix"],
+    source: input.source || "Cookingbot Remix",
+    source_url: "",
+    image_url: "",
+    photo: null,
+    photo_large: null,
+    photo_hash: null,
+    photo_url: null,
+    in_trash: false,
+    on_favorites: true,
+    created: new Date().toISOString().slice(0, 19).replace("T", " "),
+  };
+  recipe.hash = recipeHash(recipe);
+
+  const form = new FormData();
+  form.append("data", new Blob([gzipJson(recipe)], { type: "application/gzip" }), "recipe.json.gz");
+  const res = await fetch(`${API_BASE}/v2/sync/recipe/${uid}/`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  await parsePaprikaResponse<unknown>(res);
+  return { uid, hash: String(recipe.hash) };
 }
 
 export async function syncRecipesFromPaprika(onRecipe: (recipe: PaprikaRecipe) => Promise<void>) {

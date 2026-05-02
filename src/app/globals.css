@@ -178,3 +178,5 @@ form[data-submitting="true"] .loading-note { display: inline-flex; }
 }
 .recipe-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .recipe-card-actions form { display: inline-flex; }
+.meal { scroll-margin-top: 24px; }
+.modal-backdrop { overscroll-behavior: contain; }
