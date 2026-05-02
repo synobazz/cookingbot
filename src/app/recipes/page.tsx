@@ -25,16 +25,20 @@ export default async function RecipesPage({ searchParams }: { searchParams: Prom
         {recipes.map((recipe) => {
           const categories = displayCategories(safeJson<string[]>(recipe.categoriesJson, []));
           return (
-            <article className="card tight recipe-card" key={recipe.id}>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <article className="card recipe-card" key={recipe.id}>
+              <div className="recipe-card-media">
+                {(recipe.photoUrl || recipe.imageUrl) ? <img className="recipe-card-image" src={recipe.photoUrl || recipe.imageUrl || ""} alt="" loading="lazy" decoding="async" /> : <div className="recipe-card-placeholder">🍲</div>}
+              </div>
+              <div className="recipe-card-header">
                 <span className="badge">{recipe.rating ? "★".repeat(recipe.rating) : "unbewertet"}</span>
                 {isUnsafeDinnerRecipe(recipe) ? <span className="badge warning-badge">nicht für Abendplanung</span> : null}
               </div>
-              {(recipe.photoUrl || recipe.imageUrl) ? <img className="recipe-card-image" src={recipe.photoUrl || recipe.imageUrl || ""} alt="" loading="lazy" decoding="async" /> : null}
-              <h3>{recipe.name}</h3>
-              <p>{[recipe.prepTime, recipe.cookTime, recipe.servings].filter(Boolean).join(" · ") || "Keine Zeitangabe"}</p>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{categories.slice(0, 4).map((c) => <span className="badge" key={c}>{c}</span>)}</div>
-              <RecipeDetails recipe={recipe} />
+              <div className="recipe-card-content">
+                <h3>{recipe.name}</h3>
+                <p>{[recipe.prepTime, recipe.cookTime, recipe.servings].filter(Boolean).join(" · ") || "Keine Zeitangabe"}</p>
+                <div className="recipe-category-row">{categories.slice(0, 3).map((c) => <span className="badge" key={c}>{c}</span>)}</div>
+                <div className="recipe-card-actions"><RecipeDetails recipe={recipe} /></div>
+              </div>
             </article>
           );
         })}
