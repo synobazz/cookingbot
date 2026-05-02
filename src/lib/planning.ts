@@ -94,6 +94,10 @@ export function recipeForPrompt(recipe: Recipe) {
   };
 }
 
+export function displayCategories(categories: string[]) {
+  return categories.filter((category) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:-\d+-\d+)?$/i.test(category));
+}
+
 export function safeJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
   try {

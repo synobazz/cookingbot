@@ -43,7 +43,7 @@ export default async function HomePage() {
                 <span className="badge">{dayLabel(item.dayName)}</span>
                 <h3>{item.title}</h3>
                 <p>{item.reasoning || (item.isRemix ? "Remix" : "Paprika-Rezept")}</p>
-                <RecipeDetails recipe={item.recipe} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
+                <RecipeDetails recipe={item.isRemix ? null : item.recipe} title={item.title} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
               </div>
             ))}
           </div>

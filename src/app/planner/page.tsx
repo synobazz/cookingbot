@@ -49,7 +49,19 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
                   <span className="badge">{dayLabel(item.dayName)}</span>
                   <h3>{item.title}</h3>
                   <p>{item.reasoning}</p>
-                  <RecipeDetails recipe={item.recipe} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
+                  <div className="meal-actions">
+                    <RecipeDetails recipe={item.isRemix ? null : item.recipe} title={item.title} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
+                    <form action="/api/plan/item" method="post">
+                      <input type="hidden" name="itemId" value={item.id} />
+                      <input type="hidden" name="action" value="replan" />
+                      <button className="button secondary" type="submit">Replan</button>
+                    </form>
+                    <form action="/api/plan/item" method="post">
+                      <input type="hidden" name="itemId" value={item.id} />
+                      <input type="hidden" name="action" value="remix" />
+                      <button className="button secondary" type="submit">Remix</button>
+                    </form>
+                  </div>
                 </div>
               ))}
             </div>
