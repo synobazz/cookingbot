@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { createMicrosoftTodoTask } from "@/lib/microsoft";
+import { appUrl } from "@/lib/redirect";
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAuth())) return NextResponse.redirect(new URL("/login", req.url), 303);
+  if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   const form = await req.formData();
   const shoppingListId = String(form.get("shoppingListId") || "");
   const microsoftListId = String(form.get("microsoftListId") || "");
   const microsoftListName = String(form.get("microsoftListName") || "Microsoft To Do");
   const includeChecked = form.get("includeChecked") === "on";
   if (!shoppingListId || !microsoftListId) {
-    return NextResponse.redirect(new URL("/shopping?error=Bitte%20To%20Do-Liste%20ausw%C3%A4hlen", req.url), 303);
+    return NextResponse.redirect(appUrl(req, "/shopping?error=Bitte%20To%20Do-Liste%20ausw%C3%A4hlen"), 303);
   }
 
   try {
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       where: { id: shoppingListId },
       include: { items: { orderBy: { order: "asc" } } },
     });
-    if (!list) return NextResponse.redirect(new URL("/shopping?error=Einkaufsliste%20nicht%20gefunden", req.url), 303);
+    if (!list) return NextResponse.redirect(appUrl(req, "/shopping?error=Einkaufsliste%20nicht%20gefunden"), 303);
 
     const items = list.items.filter((item) => !item.microsoftTaskId && (includeChecked || !item.checked));
     let exported = 0;
@@ -41,9 +42,9 @@ export async function POST(req: NextRequest) {
       data: { microsoftListId, microsoftListName, lastMicrosoftSyncAt: new Date() },
     });
 
-    return NextResponse.redirect(new URL(`/shopping?exported=${exported}`, req.url), 303);
+    return NextResponse.redirect(appUrl(req, `/shopping?exported=${exported}`), 303);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Microsoft To Do Export fehlgeschlagen";
-    return NextResponse.redirect(new URL(`/shopping?error=${encodeURIComponent(message)}`, req.url), 303);
+    return NextResponse.redirect(appUrl(req, `/shopping?error=${encodeURIComponent(message)}`), 303);
   }
 }

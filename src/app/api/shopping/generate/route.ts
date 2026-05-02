@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { splitIngredients } from "@/lib/planning";
+import { appUrl } from "@/lib/redirect";
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAuth())) return NextResponse.redirect(new URL("/login", req.url), 303);
+  if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   const form = await req.formData();
   const planId = String(form.get("planId") || "");
   const plan = await prisma.mealPlan.findUnique({ where: { id: planId }, include: { items: { include: { recipe: true } } } });
@@ -23,5 +24,5 @@ export async function POST(req: NextRequest) {
       items: { create: rawItems.map((item, index) => ({ name: item.line, source: item.source, order: index })) },
     },
   });
-  return NextResponse.redirect(new URL("/shopping", req.url), 303);
+  return NextResponse.redirect(appUrl(req, "/shopping"), 303);
 }

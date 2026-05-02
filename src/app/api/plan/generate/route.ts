@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { getOpenAIClient, model } from "@/lib/llm";
 import { buildPlanningDates, recipeForPrompt, seasonForDate } from "@/lib/planning";
+import { appUrl } from "@/lib/redirect";
 
 const PlanSchema = z.object({
   title: z.string().min(1),
@@ -22,11 +23,11 @@ const PlanSchema = z.object({
 });
 
 function plannerError(req: NextRequest, message: string, status = 303) {
-  return NextResponse.redirect(new URL(`/planner?error=${encodeURIComponent(message)}`, req.url), status);
+  return NextResponse.redirect(appUrl(req, `/planner?error=${encodeURIComponent(message)}`), status);
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAuth())) return NextResponse.redirect(new URL("/login", req.url), 303);
+  if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
 
   try {
     const form = await req.formData();
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
         },
       },
     });
-    return NextResponse.redirect(new URL(`/planner?plan=${plan.id}`, req.url), 303);
+    return NextResponse.redirect(appUrl(req, `/planner?plan=${plan.id}`), 303);
   } catch (error) {
     console.error("plan generation failed", error);
     return plannerError(req, "Die KI-Antwort war nicht verwendbar oder der Anbieter ist nicht erreichbar.");

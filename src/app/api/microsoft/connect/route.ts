@@ -3,9 +3,10 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { microsoftAuthUrl } from "@/lib/microsoft";
+import { appUrl } from "@/lib/redirect";
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAuth())) return NextResponse.redirect(new URL("/login", req.url), 303);
+  if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   try {
     const state = randomBytes(24).toString("base64url");
     const store = await cookies();
@@ -19,6 +20,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(microsoftAuthUrl(state), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Microsoft OAuth konnte nicht gestartet werden";
-    return NextResponse.redirect(new URL(`/shopping?error=${encodeURIComponent(message)}`, req.url), 303);
+    return NextResponse.redirect(appUrl(req, `/shopping?error=${encodeURIComponent(message)}`), 303);
   }
 }

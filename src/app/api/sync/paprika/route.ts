@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { syncRecipesFromPaprika } from "@/lib/paprika";
+import { appUrl } from "@/lib/redirect";
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAuth())) return NextResponse.redirect(new URL("/login", req.url), 303);
+  if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   try {
     let upserted = 0;
     const result = await syncRecipesFromPaprika(async (recipe) => {
@@ -58,9 +59,9 @@ export async function POST(req: NextRequest) {
       upserted += 1;
     });
     await prisma.appSetting.upsert({ where: { key: "lastPaprikaSync" }, create: { key: "lastPaprikaSync", value: new Date().toISOString() }, update: { value: new Date().toISOString() } });
-    return NextResponse.redirect(new URL(`/recipes?synced=${upserted}&listed=${result.listed}`, req.url), 303);
+    return NextResponse.redirect(appUrl(req, `/recipes?synced=${upserted}&listed=${result.listed}`), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Sync failed";
-    return NextResponse.redirect(new URL(`/recipes?error=${encodeURIComponent(message)}`, req.url), 303);
+    return NextResponse.redirect(appUrl(req, `/recipes?error=${encodeURIComponent(message)}`), 303);
   }
 }
