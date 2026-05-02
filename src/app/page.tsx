@@ -3,12 +3,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { dayLabel, seasonLabel } from "@/lib/planning";
+import { RecipeDetails } from "./recipe-details";
 
 export default async function HomePage() {
   if (!(await requireAuth())) redirect("/login");
   const [recipeCount, latestPlan, shoppingCount] = await Promise.all([
     prisma.recipe.count({ where: { inTrash: false } }),
-    prisma.mealPlan.findFirst({ orderBy: { createdAt: "desc" }, include: { items: true } }),
+    prisma.mealPlan.findFirst({ orderBy: { createdAt: "desc" }, include: { items: { include: { recipe: true } } } }),
     prisma.shoppingListItem.count({ where: { checked: false } }),
   ]);
 
@@ -21,8 +22,8 @@ export default async function HomePage() {
           <p>Plane 7 Abendessen für 2 Erwachsene und ein Kind, saisonal gedacht, aus deinen Paprika-Rezepten — mit Platz für clevere Remixe.</p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
             <Link className="button" href="/planner">Woche planen</Link>
-            <form action="/api/sync/paprika" method="post"><button className="button secondary">Paprika syncen</button></form>
-            <form action="/api/today" method="post"><button className="button green">Was essen wir heute?</button></form>
+            <form action="/api/sync/paprika" method="post"><button className="button secondary" type="submit">Paprika syncen</button></form>
+            <form action="/api/today" method="post"><button className="button green" type="submit">Was essen wir heute?</button></form>
           </div>
         </div>
         <div className="grid">
@@ -42,6 +43,7 @@ export default async function HomePage() {
                 <span className="badge">{dayLabel(item.dayName)}</span>
                 <h3>{item.title}</h3>
                 <p>{item.reasoning || (item.isRemix ? "Remix" : "Paprika-Rezept")}</p>
+                <RecipeDetails recipe={item.recipe} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
               </div>
             ))}
           </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
+import { SubmitFeedback } from "./submit-feedback";
 
 export const metadata: Metadata = {
   title: "Cookingbot",
@@ -13,6 +14,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="de">
       <body>
+        <SubmitFeedback />
         <main className="shell">
           <nav className="nav">
             <Link className="brand" href="/">

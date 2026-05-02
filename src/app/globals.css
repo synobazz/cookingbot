@@ -66,3 +66,35 @@ pre { white-space: pre-wrap; word-break: break-word; }
   .hero, .grid.cols-2, .grid.cols-3 { grid-template-columns: 1fr; }
   .nav { align-items: flex-start; flex-direction: column; }
 }
+
+.button, .nav-links a, .nav-links button, summary.recipe-summary {
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background-color .12s ease, opacity .12s ease;
+}
+.button:hover, .nav-links a:hover, .nav-links button:hover, summary.recipe-summary:hover { transform: translateY(-1px); }
+.button:active, .nav-links a:active, .nav-links button:active, summary.recipe-summary:active { transform: translateY(1px) scale(.985); }
+.button:focus-visible, .nav-links a:focus-visible, .nav-links button:focus-visible, summary.recipe-summary:focus-visible { outline: 3px solid rgba(249, 115, 22, .35); outline-offset: 3px; }
+.button:disabled { cursor: wait; opacity: .72; }
+.button.is-loading::after, form[data-submitting="true"] .button[type="submit"]::after, form[data-submitting="true"] .button:not([type])::after {
+  content: "";
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: spin .7s linear infinite;
+}
+form[data-submitting="true"] { position: relative; }
+.loading-note { display: none; align-items: center; gap: 8px; color: var(--muted); font-weight: 700; }
+form[data-submitting="true"] .loading-note { display: inline-flex; }
+.spinner { width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 999px; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.recipe-details { margin-top: 10px; }
+.recipe-summary { cursor: pointer; list-style: none; user-select: none; display: inline-flex; align-items: center; gap: 8px; }
+.recipe-summary::-webkit-details-marker { display: none; }
+.recipe-summary::before { content: "▸"; color: var(--accent); transition: transform .12s ease; }
+details[open] > .recipe-summary::before { transform: rotate(90deg); }
+.recipe-body { display: grid; gap: 14px; margin-top: 14px; }
+.recipe-body h4 { margin: 0 0 6px; }
+.recipe-body pre { margin: 0; background: rgba(255, 237, 213, .55); border: 1px solid var(--border); border-radius: 16px; padding: 12px; }
+.warning-badge { background: #fee2e2; color: #991b1b; }

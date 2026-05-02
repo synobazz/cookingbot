@@ -36,10 +36,10 @@ export default async function ShoppingPage({ searchParams }: { searchParams: Pro
           {microsoftConnection ? (
             <>
               <span className="badge">Verbunden: {microsoftConnection.accountEmail || microsoftConnection.accountName || "Microsoft"}</span>
-              <form action="/api/microsoft/disconnect" method="post"><button className="button secondary">Microsoft trennen</button></form>
+              <form action="/api/microsoft/disconnect" method="post"><button className="button secondary" type="submit">Microsoft trennen</button></form>
             </>
           ) : (
-            <form action="/api/microsoft/connect" method="post"><button className="button">Microsoft To Do verbinden</button></form>
+            <form action="/api/microsoft/connect" method="post"><button className="button" type="submit">Microsoft To Do verbinden</button></form>
           )}
         </div>
       </section>
@@ -70,6 +70,7 @@ export default async function ShoppingPage({ searchParams }: { searchParams: Pro
                 </div>
                 <label className="badge"><input type="checkbox" name="includeChecked" /> erledigte Einträge ebenfalls exportieren</label>
                 <button className="button" type="submit">Neue Einträge nach Microsoft To Do senden</button>
+                <p className="loading-note"><span className="spinner" /> Export läuft…</p>
               </form>
             ) : null}
 
@@ -78,7 +79,7 @@ export default async function ShoppingPage({ searchParams }: { searchParams: Pro
                 <div className="list-item" key={item.id}>
                   <form action="/api/shopping/toggle" method="post">
                     <input type="hidden" name="itemId" value={item.id} />
-                    <button className="button secondary" style={{ padding: "7px 10px", borderRadius: 10 }} aria-label={item.checked ? "Als offen markieren" : "Als erledigt markieren"}>{item.checked ? "✓" : "○"}</button>
+                    <button className="button secondary" type="submit" style={{ padding: "7px 10px", borderRadius: 10 }} aria-label={item.checked ? "Als offen markieren" : "Als erledigt markieren"}>{item.checked ? "✓" : "○"}</button>
                   </form>
                   <div>
                     <strong style={{ textDecoration: item.checked ? "line-through" : "none" }}>{item.name}</strong>{item.quantity ? <span className="muted"> · {item.quantity}</span> : null}<br />

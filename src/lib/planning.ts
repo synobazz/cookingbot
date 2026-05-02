@@ -49,6 +49,36 @@ export function buildPlanningDates(start: Date, days: string[]) {
   return dates;
 }
 
+const unsafeDinnerNameTerms = [
+  "hotbull", "hot bull", "cocktail", "drink", "shot", "longdrink", "bowle", "punsch", "glühwein",
+  "aperol", "campari", "gin", "rum", "vodka", "wodka", "tequila", "whisky", "whiskey", "likör",
+  "prosecco", "sekt", "bier", "weinschorle", "sangria", "mojito", "caipirinha", "margarita",
+];
+
+const unsafeDinnerCategoryTerms = ["getränk", "getraenk", "cocktail", "drinks", "drink", "bar", "alkohol", "aperitif"];
+const unsafeDinnerIngredientTerms = ["vodka", "wodka", "rum", "gin", "tequila", "whisky", "whiskey", "likör", "aperol", "campari", "prosecco", "sekt"];
+
+function normalizeText(value: string | null | undefined) {
+  return (value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+export function containsUnsafeDinnerText(value: string | null | undefined) {
+  const text = normalizeText(value);
+  return unsafeDinnerNameTerms.some((term) => text.includes(term));
+}
+
+export function isUnsafeDinnerRecipe(recipe: Recipe) {
+  const name = normalizeText(recipe.name);
+  const categories = safeJson<string[]>(recipe.categoriesJson, []).map(normalizeText);
+  const ingredients = normalizeText(recipe.ingredients);
+  const notes = normalizeText(recipe.notes || "");
+  return (
+    containsUnsafeDinnerText(name) ||
+    categories.some((category) => unsafeDinnerCategoryTerms.some((term) => category.includes(term))) ||
+    unsafeDinnerIngredientTerms.some((term) => ingredients.includes(term) || notes.includes(term))
+  );
+}
+
 export function recipeForPrompt(recipe: Recipe) {
   return {
     id: recipe.id,
