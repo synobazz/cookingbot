@@ -15,23 +15,35 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="de">
       <body>
         <SubmitFeedback />
-        <main className="shell">
-          <nav className="nav">
-            <Link className="brand" href="/">
-              <span className="logo">🍳</span>
-              <span>cookingbot</span>
-            </Link>
-            {authed ? (
-              <div className="nav-links">
+        {authed ? (
+          <div className="app-shell">
+            <aside className="sidebar">
+              <Link className="brand" href="/">
+                <span className="brand-mark">c</span>
+                <span className="brand-name"><b>cookingbot</b><small>Familienküche</small></span>
+              </Link>
+              <nav className="side-nav" aria-label="Hauptnavigation">
+                <Link href="/">Heute</Link>
                 <Link href="/recipes">Rezepte</Link>
                 <Link href="/planner">Wochenplan</Link>
                 <Link href="/shopping">Einkauf</Link>
-                <form action="/api/auth/logout" method="post"><button>Logout</button></form>
-              </div>
-            ) : null}
-          </nav>
-          {children}
-        </main>
+              </nav>
+              <form className="sidebar-footer" action="/api/auth/logout" method="post"><button type="submit">Logout</button></form>
+            </aside>
+            <header className="topbar">
+              <Link className="brand compact" href="/"><span className="brand-mark">c</span><span className="brand-name"><b>cookingbot</b></span></Link>
+            </header>
+            <main className="main">{children}</main>
+            <nav className="tabbar" aria-label="Mobile Navigation">
+              <Link href="/">Heute</Link>
+              <Link href="/recipes">Rezepte</Link>
+              <Link href="/planner">Plan</Link>
+              <Link href="/shopping">Einkauf</Link>
+            </nav>
+          </div>
+        ) : (
+          <main className="auth-shell">{children}</main>
+        )}
       </body>
     </html>
   );
