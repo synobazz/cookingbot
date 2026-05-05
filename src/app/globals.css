@@ -332,7 +332,8 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .recipe-img.has-photo { background: var(--card-2); }
 .recipe-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .recipe-img.has-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(26, 22, 18, 0.02), rgba(26, 22, 18, 0.16)); }
-.recipe-img.has-photo > :not(.recipe-photo) { position: relative; z-index: 1; }
+.recipe-img.has-photo > :not(.recipe-photo):not(.modal-close) { position: relative; z-index: 1; }
+.recipe-img.has-photo > .modal-close { z-index: 2; }
 .recipe-meta { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; }
 .recipe-meta .chip { font-size: 0.7rem; padding: 4px 8px; background: rgba(255, 253, 248, 0.92); border-color: transparent; }
 .recipe-fav { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 8px; background: rgba(255, 253, 248, 0.92); border: 0; display: grid; place-items: center; cursor: pointer; color: var(--muted); }
