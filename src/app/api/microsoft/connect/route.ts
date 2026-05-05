@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { microsoftAuthUrl } from "@/lib/microsoft";
 import { appUrl } from "@/lib/redirect";
 
-export async function POST(req: NextRequest) {
+async function startMicrosoftOAuth(req: NextRequest) {
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   try {
     const state = randomBytes(24).toString("base64url");
@@ -22,4 +22,12 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : "Microsoft OAuth konnte nicht gestartet werden";
     return NextResponse.redirect(appUrl(req, `/shopping?error=${encodeURIComponent(message)}`), 303);
   }
+}
+
+export async function GET(req: NextRequest) {
+  return startMicrosoftOAuth(req);
+}
+
+export async function POST(req: NextRequest) {
+  return startMicrosoftOAuth(req);
 }
