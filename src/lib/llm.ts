@@ -1,13 +1,26 @@
 import OpenAI from "openai";
+import {
+  openAIBaseUrl,
+  plannerModel as plannerModelEnv,
+  remixModel as remixModelEnv,
+  requireOpenAIKey,
+} from "@/lib/env";
 
 export function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
   return new OpenAI({
-    apiKey,
-    baseURL: process.env.OPENAI_BASE_URL || undefined,
+    apiKey: requireOpenAIKey(),
+    baseURL: openAIBaseUrl(),
   });
 }
 
-export const plannerModel = process.env.OPENAI_PLANNER_MODEL || process.env.OPENAI_MODEL || "gpt-5.4-mini";
-export const remixModel = process.env.OPENAI_REMIX_MODEL || process.env.OPENAI_MODEL || "gpt-5.5";
+/**
+ * Resolve the model id at call time so env changes (and tests) take effect.
+ * Defaults live in `lib/env.ts` and point at real, available OpenAI models.
+ */
+export function plannerModel(): string {
+  return plannerModelEnv();
+}
+
+export function remixModel(): string {
+  return remixModelEnv();
+}

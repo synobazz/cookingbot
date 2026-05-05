@@ -1,10 +1,11 @@
 import { MicrosoftConnection, ShoppingListItem } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
+import { microsoftConfig } from "@/lib/env";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-const DEFAULT_TENANT = "consumers";
 const SCOPES = ["offline_access", "User.Read", "Tasks.ReadWrite"];
+const CONNECTION_ID = "default";
 
 type TokenResponse = {
   access_token: string;
@@ -18,18 +19,7 @@ type GraphMe = { displayName?: string; mail?: string; userPrincipalName?: string
 type GraphTask = { id: string; title: string; webUrl?: string };
 
 function requireMicrosoftEnv() {
-  const clientId = process.env.MICROSOFT_CLIENT_ID;
-  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
-  const baseUrl = process.env.APP_BASE_URL;
-  if (!clientId || !clientSecret || !baseUrl) {
-    throw new Error("MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET and APP_BASE_URL must be configured");
-  }
-  return {
-    clientId,
-    clientSecret,
-    tenant: process.env.MICROSOFT_TENANT_ID || DEFAULT_TENANT,
-    redirectUri: `${baseUrl.replace(/\/$/, "")}/api/microsoft/callback`,
-  };
+  return microsoftConfig();
 }
 
 function tokenUrl(tenant: string) {
@@ -96,15 +86,22 @@ async function refreshMicrosoftToken(connection: MicrosoftConnection) {
 export async function saveMicrosoftConnection(token: TokenResponse) {
   const expiresAt = new Date(Date.now() + Math.max(token.expires_in - 60, 60) * 1000);
   const accessToken = token.access_token;
+  const existing = await getMicrosoftConnection();
+  const refreshToken = token.refresh_token;
+  if (!refreshToken && !existing) {
+    throw new Error("Microsoft did not return a refresh token; reconnect with offline_access consent");
+  }
+
   const me = await graphFetch<GraphMe>("/me", accessToken);
+  const encryptedRefreshToken = refreshToken ? encrypt(refreshToken) : existing?.encryptedRefreshToken;
   return prisma.microsoftConnection.upsert({
-    where: { id: "default" },
+    where: { id: CONNECTION_ID },
     create: {
-      id: "default",
+      id: CONNECTION_ID,
       accountName: me.displayName || "",
       accountEmail: me.mail || me.userPrincipalName || "",
       encryptedAccessToken: encrypt(accessToken),
-      encryptedRefreshToken: encrypt(token.refresh_token || ""),
+      encryptedRefreshToken: encryptedRefreshToken || "",
       expiresAt,
       scopes: token.scope || SCOPES.join(" "),
     },
@@ -112,7 +109,7 @@ export async function saveMicrosoftConnection(token: TokenResponse) {
       accountName: me.displayName || "",
       accountEmail: me.mail || me.userPrincipalName || "",
       encryptedAccessToken: encrypt(accessToken),
-      encryptedRefreshToken: encrypt(token.refresh_token || ""),
+      encryptedRefreshToken,
       expiresAt,
       scopes: token.scope || SCOPES.join(" "),
     },
@@ -120,11 +117,11 @@ export async function saveMicrosoftConnection(token: TokenResponse) {
 }
 
 export async function getMicrosoftConnection() {
-  return prisma.microsoftConnection.findUnique({ where: { id: "default" } });
+  return prisma.microsoftConnection.findUnique({ where: { id: CONNECTION_ID } });
 }
 
 export async function disconnectMicrosoft() {
-  await prisma.microsoftConnection.deleteMany({ where: { id: "default" } });
+  await prisma.microsoftConnection.deleteMany({ where: { id: CONNECTION_ID } });
 }
 
 export async function getMicrosoftAccessToken() {

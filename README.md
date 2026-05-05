@@ -4,37 +4,54 @@ Private Kochhilfe für Wochenplanung mit Paprika-3-Rezepten, LLM-Vorschlägen, R
 
 ## Screenshots
 
-Die Screenshots nutzen Demo-Daten, damit die UI im Repository schnell einschätzbar ist.
+Die Screenshots zeigen das aktuelle UI im „Paprika-Cache"-Design (warmer Papier-Look, Serif-Display, dunkle Akzente, deterministische Rezept-Kacheln). Die Bilder im Repository nutzen Demo-Daten.
+
+### Login
+
+Privater Zugang mit eigenem Passwort, Show/Hide-Toggle, kein Tracking.
 
 ![Login](docs/screenshots/01-login.png)
 
+### Dashboard
+
+Begrüßung, Saison-Hinweis, „Heute Abend"-Hero aus dem aktuellen Plan (oder Empty-State), Statistik-Kacheln und 7-Tage-Wochengrid mit „heute"-Marker und Klick-Slots.
+
 ![Dashboard](docs/screenshots/02-dashboard.png)
+
+### Rezepte
+
+Lokaler Paprika-Cache mit Suche, Filter-Pills (Schnell, Vegetarisch, Kindertauglich, Saisonal, Meal Prep, Suppe), Sortierung nach Bewertung/Name/Sync-Datum und farbcodierten Rezeptkacheln.
 
 ![Rezepte](docs/screenshots/03-recipes.png)
 
+### Wochenplan
+
+Sticky-Formular mit Datumswahl, Personenstepper (1,0–6,0 in 0,5er-Schritten) und Tag-Toggles. Rechts die Plan-Tabs für KW-Versionen und je Tag eine Zeile mit Begründung, Tags und Aktionen (Tausch, Remix, Öffnen).
+
 ![Wochenplan](docs/screenshots/04-planner.png)
+
+### Einkaufsliste
+
+Fortschritts-Ring, Microsoft-To-Do-Banner (wenn nicht verbunden), nach Abteilung gruppierte Items mit Optimistic-Toggle, „Erledigte ausblenden" und Druckansicht.
 
 ![Einkaufsliste](docs/screenshots/05-shopping.png)
 
 ## Aktueller Funktionsumfang
 
-- Login-geschützte private Website
+- Login-geschützte private Website mit Show/Hide-Passwort und Session-Cookies
 - Paprika Cloud Sync über die inoffizielle/experimentelle API
 - Lokaler Rezeptcache in SQLite inklusive Paprika-Bildfeldern
-- Server-seitiger Rezeptbild-Proxy mit Placeholder für Rezepte ohne Bild
-- Rezeptübersicht im Cookbook-Design mit Modal/Lightbox zum Kochen
-- Manuelles Ausschließen einzelner Rezepte von der Abendplanung
-- Wochenplanung für Abendessen: standardmäßig 7 Tage, aber frei auswählbare Tage
-- Haushalt: 2 Erwachsene + 1 Kind (2,5 Personen)
+- Eigenes „Paprika-Cache"-UI: Sidebar (Desktop), Mobile-Tabbar, Dark-Mode, `prefers-reduced-motion`
+- Dashboard mit Saison-Hinweis, „Heute Abend"-Hero (oder Empty-State, wenn kein Plan existiert), Statistik-Kacheln und 7-Tage-Wochengrid
+- Rezeptseite mit Suche, Filter-Pills (Schnell, Vegetarisch, Kindertauglich, Saisonal, Meal Prep, Suppe), Sortierung nach Bewertung/Name/Sync-Datum und deterministischen Farbkacheln pro Rezept
+- Rezept-Modal mit Focus-Trap, ESC-Schließen, Zutaten/Zubereitung im 2-Spalten-Layout, optionalen Notizen und Quell-Link
+- Manuelles Ausschließen einzelner Rezepte von der Abendplanung direkt auf der Karte
+- Wochenplanung mit Tag-Toggles (Tastatur-Navigation), Personenstepper (1,0–6,0 in 0,5er-Schritten) und Plan-Tabs für mehrere KW-Versionen
+- Pro Gericht im Plan: Tausch, Remix, Öffnen, optional Remix nach Paprika exportieren
 - Harte Filter gegen ungeeignete Abendessen, z.B. alkoholische Getränke/Cocktails
 - Saisonale Vorschläge und Rezept-Remixe durch ein OpenAI-kompatibles LLM
 - Getrennte LLM-Modelle für Planung und kreative Remixe
-- Pro Gericht im Wochenplan:
-  - Rezept öffnen
-  - Neu planen
-  - Remixen
-  - Remix nach Paprika exportieren
-- Interne Einkaufsliste aus Rezeptzutaten
+- Einkaufsliste mit Fortschritts-Ring, Optimistic-Toggle, „Erledigte ausblenden", Gruppierung nach Abteilung (Fallback-Kategorisierung in `src/lib/shopping-categories.ts`) und Druckansicht
 - Optionaler Microsoft-To-Do-Export für Einkaufspunkte
 - Docker-Deployment für NAS/Portainer
 
@@ -43,7 +60,7 @@ Die Screenshots nutzen Demo-Daten, damit die UI im Repository schnell einschätz
 - feinere Microsoft-To-Do-Sync-Optionen, z.B. bidirektionaler Statusabgleich
 - bessere Zutaten-Normalisierung und Mengenaggregation
 - Undo für Replan/Remix
-- Suche/Filter auf der Rezeptseite
+- Fotos aus Paprika wieder im Modal anzeigen (aktuell nur Farbkachel)
 - optional weitere OpenAI-kompatible Provider
 
 ## Voraussetzungen
@@ -180,29 +197,28 @@ In Production startet cookingbot nicht mit den Default-Werten `change-me` oder z
 
 ## Nach dem ersten Login
 
-1. Zu **Rezepte** gehen.
+1. In der Sidebar zu **Rezepte** wechseln.
 2. **Jetzt synchronisieren** klicken.
-3. Danach in **Wochenplan** Startdatum, Personen und gewünschte Tage auswählen.
-4. Plan erzeugen lassen.
-5. Optional einzelne Tage **Neu planen** oder **Remixen**.
-6. Aus dem Plan eine Einkaufsliste erstellen.
+3. Danach unter **Plan** Startdatum, Personen und gewünschte Tage auswählen und **Plan generieren** drücken.
+4. Optional pro Tag **Tausch** oder **Remix** verwenden.
+5. Aus dem Plan eine Einkaufsliste erstellen (Button **Einkaufsliste erzeugen** im Plan-Footer).
 
 Der erste Paprika-Sync und die erste KI-Planung können je nach Rezeptmenge etwas dauern.
 
 ## Rezepte manuell von der Planung ausschließen
 
-Auf der Rezeptseite gibt es pro Rezept einen Toggle:
+Auf der Rezeptseite gibt es pro Karte einen Toggle:
 
 - **Ausschließen**: Rezept wird nicht mehr für Abendessen verwendet
-- **Einplanen erlauben**: Rezept darf wieder verwendet werden
+- **Einplanen**: Rezept darf wieder verwendet werden
 
 Ausgeschlossene Rezepte werden ignoriert bei:
 
 - Wochenplan generieren
-- **Neu planen**
+- **Tausch** und **Remix** im Plan
 - **Was essen wir heute?**
 
-Sie bleiben aber weiterhin im lokalen Rezeptcache sichtbar.
+Sie bleiben aber weiterhin im lokalen Rezeptcache sichtbar und sind im Modal aufrufbar.
 
 ## Remixe nach Paprika exportieren
 
@@ -261,13 +277,13 @@ Paprika ist nicht offiziell dokumentiert. cookingbot nutzt deshalb einen Adapter
 - Rezeptdetails: `GET /api/v2/sync/recipe/{uid}/`
 - Remix-Export: `POST /api/v2/sync/recipe/{uid}/` mit gzip-komprimierter Rezeptdefinition
 
-Bilder werden nicht direkt im Browser aus Paprika geladen, sondern über den serverseitigen Endpoint:
+Bilder werden serverseitig über folgenden Endpoint geladen:
 
 ```text
 /api/recipe-image/[recipeId]
 ```
 
-Rezepte ohne Bild bekommen automatisch einen Placeholder.
+In der aktuellen UI nutzt das Modal eine deterministische Farbkachel statt des Originalfotos; der Image-Proxy bleibt für künftige Erweiterungen erhalten. Rezepte ohne Bild bekommen automatisch einen Placeholder.
 
 ## Backup
 
@@ -288,13 +304,17 @@ Bei Git-Stack in Portainer:
 3. Logs prüfen.
 4. App öffnen und Login testen.
 
-Beim Containerstart läuft:
+Beim Containerstart läuft standardmäßig:
 
 ```text
 prisma db push --skip-generate
 ```
 
-Dadurch werden neue SQLite-Felder beim Redeploy automatisch ergänzt.
+Dadurch werden neue SQLite-Felder beim Redeploy automatisch ergänzt. Für die private NAS-/Portainer-Nutzung ist das bewusst bequem gehalten. Falls du später auf manuell verwaltete Prisma-Migrationen umstellst, kannst du den automatischen Sync deaktivieren:
+
+```env
+PRISMA_DB_PUSH_ON_START=false
+```
 
 ## Troubleshooting
 

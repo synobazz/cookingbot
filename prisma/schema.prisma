@@ -37,6 +37,10 @@ model Recipe {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   mealItems      MealItem[]
+
+  @@index([inTrash, excludeFromPlanning])
+  @@index([onFavorites, rating])
+  @@index([updatedAt])
 }
 
 model MealPlan {
@@ -62,13 +66,16 @@ model MealItem {
   title        String
   type         String   @default("dinner")
   recipeId     String?
-  recipe       Recipe?  @relation(fields: [recipeId], references: [id])
+  recipe       Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
   isRemix      Boolean  @default(false)
   remixSource  String?  @default("")
   reasoning    String?  @default("")
   ingredients  String   @default("")
   instructions String   @default("")
   createdAt    DateTime @default(now())
+
+  @@index([mealPlanId])
+  @@index([recipeId])
 }
 
 model ShoppingList {
@@ -97,6 +104,8 @@ model ShoppingListItem {
   microsoftTaskId   String?      @default("")
   microsoftTaskUrl  String?      @default("")
   microsoftSyncedAt DateTime?
+
+  @@index([shoppingListId, order])
 }
 
 model MicrosoftConnection {

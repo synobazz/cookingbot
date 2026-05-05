@@ -1,89 +1,233 @@
 import { redirect } from "next/navigation";
-import { addDays, format } from "date-fns";
+import Link from "next/link";
+import { addDays, format, isAfter, startOfWeek } from "date-fns";
+import { de } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { dayLabel } from "@/lib/planning";
-import { RecipeDetails } from "../recipe-details";
+import { dayLabel, defaultDays as defaultDayKeys } from "@/lib/planning";
+import { CartIcon, CheckIcon, DownloadIcon } from "../_components/icons";
+import { RecipeModal } from "../_components/recipe-modal";
+import { PlannerForm } from "./planner-form";
 
-const days = [
-  ["monday", "Mo"], ["tuesday", "Di"], ["wednesday", "Mi"], ["thursday", "Do"], ["friday", "Fr"], ["saturday", "Sa"], ["sunday", "So"],
-];
+const DAY_SHORT: Record<string, string> = {
+  monday: "Mo",
+  tuesday: "Di",
+  wednesday: "Mi",
+  thursday: "Do",
+  friday: "Fr",
+  saturday: "Sa",
+  sunday: "So",
+};
 
-export default async function PlannerPage({ searchParams }: { searchParams: Promise<{ error?: string; exported?: string; plan?: string; today?: string }> }) {
+type SearchParams = {
+  error?: string;
+  exported?: string;
+  plan?: string;
+};
+
+export default async function PlannerPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   if (!(await requireAuth())) redirect("/login");
   const params = await searchParams;
-  const plans = await prisma.mealPlan.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { items: { include: { recipe: true } } } });
-  const nextMonday = addDays(new Date(), (8 - new Date().getDay()) % 7 || 7);
-  return (
-    <div className="grid">
-      <section className="card">
-        <div className="eyebrow">LLM Wochenplanung</div>
-        <h1>Plan generieren</h1>
-        {params.error ? <p style={{ color: "#b91c1c" }}>Plan konnte nicht erzeugt werden: {decodeURIComponent(params.error)}</p> : null}
-        {params.exported === "paprika" ? <p style={{ color: "#1f3a2e" }}>Remix wurde nach Paprika exportiert.</p> : null}
-        <p className="muted">Die KI-Planung kann je nach Rezeptmenge 1–2 Minuten dauern.</p>
-        <form className="form" method="post" action="/api/plan/generate">
-          <div className="grid cols-2">
-            <label><div className="label">Startdatum</div><input className="input" name="start" type="date" defaultValue={format(nextMonday, "yyyy-MM-dd")} /></label>
-            <label><div className="label">Personen</div><input className="input" name="people" type="number" min="1" step="0.5" defaultValue="2.5" /></label>
-          </div>
-          <div>
-            <div className="label">Welche Tage?</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-              {days.map(([value, label]) => <label className="badge" key={value}><input type="checkbox" name="days" value={value} defaultChecked /> {label}</label>)}
-            </div>
-          </div>
-          <label><div className="label">Wünsche für diese Woche</div><textarea className="textarea" name="notes" placeholder="z.B. 2x schnell, 1x kindertauglich, Kartoffeln gerne als Beilage, Samstag darf aufwendiger sein…" /></label>
-          <button className="button" type="submit">Plan kochen lassen</button>
-          <p className="loading-note"><span className="spinner" /> Wochenplan wird erstellt… das kann 1–2 Minuten dauern.</p>
-        </form>
-      </section>
 
-      <section className="grid">
-        {plans.map((plan) => (
-          <article className="card" key={plan.id}>
-            <div className="eyebrow">{format(plan.startsOn, "dd.MM.yyyy")}</div>
-            <h2>{plan.title}</h2>
-            <div className="grid cols-3">
-              {plan.items.map((item) => (
-                <div className="card tight meal" id={`meal-${item.id}`} key={item.id}>
-                  <span className="badge">{dayLabel(item.dayName)}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.reasoning}</p>
-                  <div className="meal-actions">
-                    <RecipeDetails recipe={item.isRemix ? null : item.recipe} title={item.title} fallbackIngredients={item.ingredients} fallbackInstructions={item.instructions} />
-                    {item.isRemix && item.remixSource ? <span className="badge">Remix von: {item.remixSource}</span> : null}
-                    {item.isRemix && item.ingredients && item.instructions ? (
-                      <form action="/api/paprika/export-remix" method="post">
+  const plans = await prisma.mealPlan.findMany({
+    orderBy: { startsOn: "desc" },
+    take: 6,
+    include: { items: { include: { recipe: true }, orderBy: { date: "asc" } } },
+  });
+
+  const requestedPlanId = params.plan;
+  const activePlan = (requestedPlanId && plans.find((p) => p.id === requestedPlanId)) || plans[0] || null;
+
+  const now = new Date();
+  const nextMonday = startOfWeek(
+    isAfter(now, startOfWeek(now, { weekStartsOn: 1 })) ? addDays(now, 7) : now,
+    { weekStartsOn: 1 },
+  );
+  const startDateStr = format(nextMonday, "yyyy-MM-dd");
+  const dayItems = defaultDayKeys.map((value, idx) => {
+    const date = addDays(nextMonday, idx);
+    return {
+      value,
+      short: DAY_SHORT[value] || value.slice(0, 2),
+      dateNumber: parseInt(format(date, "d"), 10),
+    };
+  });
+
+  const planWeekNumber = activePlan ? format(activePlan.startsOn, "II", { locale: de }) : null;
+  const planRange = activePlan
+    ? `${format(activePlan.startsOn, "d. MMM", { locale: de })} – ${format(addDays(activePlan.startsOn, 6), "d. MMM", { locale: de })}`
+    : null;
+
+  return (
+    <>
+      <div className="page-head">
+        <div className="left">
+          <span className="eyebrow">KI-Wochenplanung</span>
+          <h1 className="display">
+            Plan <em>kochen</em> lassen.
+          </h1>
+          <span className="sub">
+            {activePlan
+              ? `KW${"\u00a0"}${planWeekNumber} · ${planRange} · ${activePlan.people.toString().replace(".", ",")} Personen`
+              : "Noch kein Plan vorhanden — fülle das Formular und lass die KI deine Woche kochen."}
+          </span>
+        </div>
+      </div>
+
+      {params.error ? (
+        <p role="alert" style={{ color: "var(--warn)", marginBottom: 18 }}>
+          Plan konnte nicht erzeugt werden: {decodeURIComponent(params.error)}
+        </p>
+      ) : null}
+      {params.exported === "paprika" ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          Remix wurde nach Paprika exportiert.
+        </p>
+      ) : null}
+
+      <div className="planner-grid">
+        <aside className="planner-form">
+          <PlannerForm
+            defaultStart={startDateStr}
+            dayItems={dayItems}
+            defaultDays={defaultDayKeys}
+            defaultPeople={activePlan?.people ?? 2.5}
+          />
+        </aside>
+
+        <div className="card plan-week">
+          <div className="plan-tabs" role="tablist" aria-label="Pläne">
+            {plans.map((plan) => {
+              const wk = format(plan.startsOn, "II", { locale: de });
+              const on = activePlan?.id === plan.id;
+              return (
+                <Link
+                  key={plan.id}
+                  href={`/planner?plan=${plan.id}`}
+                  className={`plan-tab${on ? " on" : ""}`}
+                  role="tab"
+                  aria-selected={on}
+                >
+                  {on ? "Aktueller Plan · " : ""}KW{"\u00a0"}{wk}
+                </Link>
+              );
+            })}
+          </div>
+
+          {activePlan ? (
+            <>
+              {activePlan.items.map((item) => {
+                const short = DAY_SHORT[item.dayName.toLowerCase()] || dayLabel(item.dayName).slice(0, 2);
+                const dateLabel = format(item.date, "d. MMM", { locale: de });
+                const tags: { label: string; tone?: "forest" | "terra" | "warn" | "gold" }[] = [];
+                if (item.isRemix) tags.push({ label: "Remix", tone: "terra" });
+                const time = item.recipe?.totalTime || item.recipe?.cookTime;
+                if (time) {
+                  const minutes = parseInt(time.replace(/\D/g, ""), 10);
+                  if (Number.isFinite(minutes) && minutes > 0 && minutes <= 25)
+                    tags.push({ label: "Schnell", tone: "forest" });
+                }
+                const subject = item.recipe
+                  ? {
+                      id: item.recipe.id,
+                      name: item.title,
+                      description: item.recipe.description,
+                      ingredients: item.recipe.ingredients,
+                      directions: item.recipe.directions,
+                      notes: item.recipe.notes,
+                      servings: item.recipe.servings,
+                      prepTime: item.recipe.prepTime,
+                      cookTime: item.recipe.cookTime,
+                      totalTime: item.recipe.totalTime,
+                      sourceUrl: item.recipe.sourceUrl,
+                      rating: item.recipe.rating,
+                    }
+                  : {
+                      name: item.title,
+                      ingredients: item.ingredients,
+                      directions: item.instructions,
+                    };
+                return (
+                  <div className="plan-row" key={item.id}>
+                    <div className="plan-day">
+                      <b>{short}</b>
+                      <span>{dateLabel}</span>
+                    </div>
+                    <div className="plan-meal">
+                      <div className="pm-title">{item.title}</div>
+                      {item.reasoning ? <div className="pm-reason">{item.reasoning}</div> : null}
+                      {tags.length ? (
+                        <div className="pm-tags">
+                          {tags.map((t, i) => (
+                            <span key={i} className={`chip${t.tone ? " " + t.tone : ""}`}>
+                              {t.label}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="plan-acts">
+                      <form action="/api/plan/item" method="post">
                         <input type="hidden" name="itemId" value={item.id} />
-                        <button className="button secondary" type="submit">Nach Paprika exportieren</button>
-                        <p className="loading-note"><span className="spinner" /> Export nach Paprika läuft…</p>
+                        <input type="hidden" name="action" value="replan" />
+                        <button className="btn ghost sm" type="submit">
+                          Tausch
+                        </button>
                       </form>
-                    ) : null}
-                    <form action="/api/plan/item" method="post">
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <input type="hidden" name="action" value="replan" />
-                      <button className="button secondary" type="submit">Neu planen</button>
-                      <p className="loading-note"><span className="spinner" /> Neues Gericht wird gesucht…</p>
-                    </form>
-                    <form action="/api/plan/item" method="post">
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <input type="hidden" name="action" value="remix" />
-                      <button className="button secondary" type="submit">Remixen</button>
-                      <p className="loading-note"><span className="spinner" /> Remix wird gekocht…</p>
-                    </form>
+                      <form action="/api/plan/item" method="post">
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <input type="hidden" name="action" value="remix" />
+                        <button className="btn ghost sm" type="submit">
+                          Remix
+                        </button>
+                      </form>
+                      <RecipeModal
+                        recipe={subject}
+                        title={item.title}
+                        triggerLabel="Öffnen"
+                        triggerClassName="btn sm"
+                      />
+                    </div>
                   </div>
+                );
+              })}
+
+              <div className="plan-foot">
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="chip forest">
+                    <CheckIcon /> Plan gespeichert
+                  </span>
+                  <span className="muted" style={{ fontSize: ".85rem" }}>
+                    {format(activePlan.updatedAt, "d. MMM, HH:mm", { locale: de })}
+                  </span>
                 </div>
-              ))}
-            </div>
-            <form action="/api/shopping/generate" method="post" style={{ marginTop: 16 }}>
-              <input type="hidden" name="planId" value={plan.id} />
-              <button className="button secondary" type="submit">Einkaufsliste erzeugen</button>
-              <p className="loading-note"><span className="spinner" /> Einkaufsliste wird erzeugt…</p>
-            </form>
-          </article>
-        ))}
-      </section>
-    </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <form action="/api/microsoft/export-shopping" method="post">
+                    <input type="hidden" name="planId" value={activePlan.id} />
+                    <button className="btn ghost" type="submit">
+                      <DownloadIcon /> Export
+                    </button>
+                  </form>
+                  <form action="/api/shopping/generate" method="post">
+                    <input type="hidden" name="planId" value={activePlan.id} />
+                    <button className="btn" type="submit">
+                      <CartIcon /> Einkaufsliste erzeugen
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="muted" style={{ padding: "32px 0", textAlign: "center" }}>
+              Noch kein Plan vorhanden.
+            </p>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

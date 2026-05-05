@@ -1,13 +1,32 @@
 import { redirect } from "next/navigation";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { getMicrosoftConnection, listMicrosoftTodoLists } from "@/lib/microsoft";
+import { ShoppingBoard, type ShoppingListData } from "./shopping-board";
 
-export default async function ShoppingPage({ searchParams }: { searchParams: Promise<{ error?: string; exported?: string; microsoft?: string }> }) {
+type SearchParams = {
+  error?: string;
+  exported?: string;
+  microsoft?: string;
+  list?: string;
+};
+
+export default async function ShoppingPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   if (!(await requireAuth())) redirect("/login");
   const params = await searchParams;
+
   const [lists, microsoftConnection] = await Promise.all([
-    prisma.shoppingList.findMany({ orderBy: { createdAt: "desc" }, take: 6, include: { items: { orderBy: { order: "asc" } }, mealPlan: true } }),
+    prisma.shoppingList.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      include: { items: { orderBy: { order: "asc" } }, mealPlan: true },
+    }),
     getMicrosoftConnection(),
   ]);
 
@@ -17,81 +36,167 @@ export default async function ShoppingPage({ searchParams }: { searchParams: Pro
     try {
       todoLists = await listMicrosoftTodoLists();
     } catch (error) {
-      microsoftError = error instanceof Error ? error.message : "Microsoft To Do Listen konnten nicht geladen werden";
+      microsoftError =
+        error instanceof Error ? error.message : "Microsoft To Do Listen konnten nicht geladen werden";
     }
   }
 
+  const requestedListId = params.list;
+  const activeList =
+    (requestedListId && lists.find((l) => l.id === requestedListId)) || lists[0] || null;
+
+  const boardData: ShoppingListData | null = activeList
+    ? {
+        id: activeList.id,
+        title: activeList.title,
+        planTitle: activeList.mealPlan.title,
+        microsoftListName: activeList.microsoftListName,
+        items: activeList.items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          quantity: i.quantity,
+          category: i.category,
+          source: i.source,
+          checked: i.checked,
+          microsoftTaskId: i.microsoftTaskId,
+        })),
+      }
+    : null;
+
+  const weekLabel = activeList ? format(activeList.mealPlan.startsOn, "II", { locale: de }) : null;
+
   return (
-    <div className="grid">
-      <section className="card">
-        <div className="eyebrow">Einkauf · V2</div>
-        <h1>Einkaufslisten</h1>
-        <p>Interne Liste mit direktem Export einzelner Einkaufspunkte als Aufgaben nach Microsoft To Do.</p>
-        {params.exported ? <p style={{ color: "#15803d" }}>{params.exported} Einträge nach Microsoft To Do exportiert.</p> : null}
-        {params.microsoft === "connected" ? <p style={{ color: "#15803d" }}>Microsoft To Do verbunden.</p> : null}
-        {params.microsoft === "disconnected" ? <p className="muted">Microsoft To Do getrennt.</p> : null}
-        {params.error ? <p style={{ color: "#b91c1c" }}>{decodeURIComponent(params.error)}</p> : null}
-        {microsoftError ? <p style={{ color: "#b91c1c" }}>{microsoftError}</p> : null}
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {microsoftConnection ? (
-            <>
-              <span className="badge">Verbunden: {microsoftConnection.accountEmail || microsoftConnection.accountName || "Microsoft"}</span>
-              <form action="/api/microsoft/disconnect" method="post"><button className="button secondary" type="submit">Microsoft trennen</button></form>
-            </>
-          ) : (
-            <form action="/api/microsoft/connect" method="post"><button className="button" type="submit">Microsoft To Do verbinden</button></form>
-          )}
+    <>
+      <div className="page-head">
+        <div className="left">
+          <span className="eyebrow">{weekLabel ? `Einkauf · KW${"\u00a0"}${weekLabel}` : "Einkauf"}</span>
+          <h1 className="display">
+            Was muss <em>noch in den Korb?</em>
+          </h1>
+          <span className="sub">Auto-generiert aus deinem Wochenplan, gruppiert nach Abteilung.</span>
         </div>
-      </section>
-      {lists.map((list) => {
-        const pendingCount = list.items.filter((item) => !item.checked).length;
-        const exportedCount = list.items.filter((item) => item.microsoftTaskId).length;
-        return (
-          <section className="card" key={list.id}>
-            <span className="badge">{list.mealPlan.title}</span>
-            <h2>{list.title}</h2>
-            <p className="muted">{pendingCount} offen · {exportedCount} bereits in Microsoft To Do</p>
+        <div className="actions">
+          {lists.length > 1 ? (
+            <form method="get" style={{ display: "flex", gap: 8 }}>
+              <select className="select" name="list" defaultValue={activeList?.id ?? ""} aria-label="Liste wählen">
+                {lists.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.mealPlan.title}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="btn ghost sm">
+                Wechseln
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </div>
 
-            {microsoftConnection ? (
-              <form className="form" action="/api/microsoft/export-shopping" method="post" style={{ marginBottom: 18 }}>
-                <input type="hidden" name="shoppingListId" value={list.id} />
-                <div className="grid cols-2">
-                  <label>
-                    <div className="label">Microsoft To Do Liste</div>
-                    <select className="select" name="microsoftListId" defaultValue={list.microsoftListId || todoLists.find((todo) => todo.displayName.toLowerCase().includes("einkauf"))?.id || todoLists[0]?.id || ""} required>
-                      <option value="" disabled>Liste auswählen…</option>
-                      {todoLists.map((todo) => <option key={todo.id} value={todo.id}>{todo.displayName}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <div className="label">Listenname für Verlauf</div>
-                    <input className="input" name="microsoftListName" defaultValue={list.microsoftListName || "Microsoft To Do"} />
-                  </label>
-                </div>
-                <label className="badge"><input type="checkbox" name="includeChecked" /> erledigte Einträge ebenfalls exportieren</label>
-                <button className="button" type="submit">Neue Einträge nach Microsoft To Do senden</button>
-                <p className="loading-note"><span className="spinner" /> Export läuft…</p>
-              </form>
-            ) : null}
+      {params.error ? (
+        <p role="alert" style={{ color: "var(--warn)", marginBottom: 18 }}>
+          {decodeURIComponent(params.error)}
+        </p>
+      ) : null}
+      {params.exported ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          {params.exported} Einträge nach Microsoft To Do exportiert.
+        </p>
+      ) : null}
+      {params.microsoft === "connected" ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          Microsoft To Do verbunden.
+        </p>
+      ) : null}
+      {microsoftError ? (
+        <p role="alert" style={{ color: "var(--warn)", marginBottom: 18 }}>
+          {microsoftError}
+        </p>
+      ) : null}
 
-            <div className="grid cols-2">
-              {list.items.map((item) => (
-                <div className="list-item" key={item.id}>
-                  <form action="/api/shopping/toggle" method="post">
-                    <input type="hidden" name="itemId" value={item.id} />
-                    <button className="button secondary" type="submit" style={{ padding: "7px 10px", borderRadius: 10 }} aria-label={item.checked ? "Als offen markieren" : "Als erledigt markieren"}>{item.checked ? "✓" : "○"}</button>
-                  </form>
-                  <div>
-                    <strong style={{ textDecoration: item.checked ? "line-through" : "none" }}>{item.name}</strong>{item.quantity ? <span className="muted"> · {item.quantity}</span> : null}<br />
-                    <span className="muted">{item.source}</span>
-                    {item.microsoftTaskId ? <><br /><span className="badge">in Microsoft To Do</span></> : null}
-                  </div>
-                </div>
-              ))}
+      <ShoppingBoard list={boardData} microsoftConnected={Boolean(microsoftConnection)} />
+
+      {microsoftConnection && activeList ? (
+        <form
+          className="card card-pad"
+          action="/api/microsoft/export-shopping"
+          method="post"
+          style={{ marginTop: 24 }}
+        >
+          <h3 style={{ margin: "0 0 14px", fontFamily: "var(--font-fraunces)", fontWeight: 500 }}>
+            Nach Microsoft To Do exportieren
+          </h3>
+          <input type="hidden" name="shoppingListId" value={activeList.id} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div>
+              <label className="label" htmlFor="ms-list">
+                Microsoft To Do Liste
+              </label>
+              <select
+                id="ms-list"
+                className="select"
+                name="microsoftListId"
+                defaultValue={
+                  activeList.microsoftListId ||
+                  todoLists.find((t) => t.displayName.toLowerCase().includes("einkauf"))?.id ||
+                  todoLists[0]?.id ||
+                  ""
+                }
+                required
+              >
+                <option value="" disabled>
+                  Liste auswählen…
+                </option>
+                {todoLists.map((todo) => (
+                  <option key={todo.id} value={todo.id}>
+                    {todo.displayName}
+                  </option>
+                ))}
+              </select>
             </div>
-          </section>
-        );
-      })}
-    </div>
+            <div>
+              <label className="label" htmlFor="ms-list-name">
+                Listenname für Verlauf
+              </label>
+              <input
+                id="ms-list-name"
+                className="input"
+                name="microsoftListName"
+                defaultValue={activeList.microsoftListName || "Microsoft To Do"}
+              />
+            </div>
+          </div>
+          <label
+            className="muted"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: ".88rem" }}
+          >
+            <input type="checkbox" name="includeChecked" /> Erledigte ebenfalls exportieren
+          </label>
+          <div style={{ marginTop: 14 }}>
+            <button className="btn" type="submit">
+              Neue Einträge senden
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {microsoftConnection ? (
+        <div className="muted" style={{ marginTop: 18, fontSize: ".82rem", display: "flex", alignItems: "center", gap: 6 }}>
+          <span>
+            Verbunden als {microsoftConnection.accountEmail || microsoftConnection.accountName || "Microsoft"}
+          </span>
+          <span aria-hidden>·</span>
+          <form action="/api/microsoft/disconnect" method="post">
+            <button
+              className="muted"
+              type="submit"
+              style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline", font: "inherit", color: "inherit" }}
+            >
+              trennen
+            </button>
+          </form>
+        </div>
+      ) : null}
+    </>
   );
 }

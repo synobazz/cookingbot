@@ -21,6 +21,8 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-consumers}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      PRISMA_DB_PUSH_ON_START: ${PRISMA_DB_PUSH_ON_START:-true}
     volumes:
       - cookingbot-data:/data
 

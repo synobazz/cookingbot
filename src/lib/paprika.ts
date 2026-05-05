@@ -1,7 +1,10 @@
 import { gzipSync } from "node:zlib";
 import { createHash, randomUUID } from "node:crypto";
+import { paprikaApiBase, paprikaCredentials } from "@/lib/env";
 
-const API_BASE = process.env.PAPRIKA_API_BASE || "https://www.paprikaapp.com/api";
+function apiBase() {
+  return paprikaApiBase();
+}
 
 type PaprikaListEntry = { uid: string; hash?: string };
 
@@ -39,14 +42,22 @@ async function parsePaprikaResponse<T>(res: Response): Promise<T> {
   return json.result as T;
 }
 
-export async function loginToPaprika() {
-  const email = process.env.PAPRIKA_EMAIL;
-  const password = process.env.PAPRIKA_PASSWORD;
-  if (!email || !password) throw new Error("PAPRIKA_EMAIL and PAPRIKA_PASSWORD must be configured");
+/**
+ * Cache the bearer token in-process. Tokens are typically valid for hours;
+ * we deliberately use a conservative TTL so a stale token still triggers a
+ * single 401 → re-login round-trip via the image proxy.
+ */
+const TOKEN_TTL_MS = 30 * 60 * 1000;
+let cachedToken: { token: string; expiresAt: number } | null = null;
 
+export async function loginToPaprika(forceFresh = false) {
+  if (!forceFresh && cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.token;
+  }
+  const { email, password } = paprikaCredentials();
   const basic = Buffer.from(`${email}:${password}`).toString("base64");
   const body = new URLSearchParams({ email, password });
-  const res = await fetch(`${API_BASE}/v1/account/login/`, {
+  const res = await fetch(`${apiBase()}/v1/account/login/`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${basic}`,
@@ -56,11 +67,16 @@ export async function loginToPaprika() {
     cache: "no-store",
   });
   const result = await parsePaprikaResponse<{ token: string }>(res);
+  cachedToken = { token: result.token, expiresAt: Date.now() + TOKEN_TTL_MS };
   return result.token;
 }
 
+export function clearPaprikaTokenCache() {
+  cachedToken = null;
+}
+
 async function paprikaGet<T>(path: string, token: string) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${apiBase()}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
@@ -75,10 +91,22 @@ export async function getRecipe(token: string, uid: string) {
   return paprikaGet<PaprikaRecipe>(`/v2/sync/recipe/${uid}/`, token);
 }
 
+/**
+ * Deterministic hash that walks every nested object to ensure key-order
+ * independence — earlier the second argument to JSON.stringify was abused as
+ * a key allow-list, which made the hash unstable for nested objects.
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  const entries = keys.map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`);
+  return `{${entries.join(",")}}`;
+}
+
 function recipeHash(recipe: Record<string, unknown>) {
-  const withoutHash = { ...recipe };
-  delete withoutHash.hash;
-  return createHash("sha256").update(JSON.stringify(withoutHash, Object.keys(withoutHash).sort())).digest("hex");
+  const { hash: _hash, ...withoutHash } = recipe;
+  return createHash("sha256").update(stableStringify(withoutHash)).digest("hex");
 }
 
 export async function createRecipeInPaprika(input: { name: string; ingredients: string; directions: string; notes?: string; source?: string; categories?: string[] }) {
@@ -113,7 +141,7 @@ export async function createRecipeInPaprika(input: { name: string; ingredients: 
 
   const form = new FormData();
   form.append("data", new Blob([gzipJson(recipe)], { type: "application/gzip" }), "recipe.json.gz");
-  const res = await fetch(`${API_BASE}/v2/sync/recipe/${uid}/`, {
+  const res = await fetch(`${apiBase()}/v2/sync/recipe/${uid}/`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: form,
@@ -122,16 +150,68 @@ export async function createRecipeInPaprika(input: { name: string; ingredients: 
   return { uid, hash: String(recipe.hash) };
 }
 
-export async function syncRecipesFromPaprika(onRecipe: (recipe: PaprikaRecipe) => Promise<void>) {
+/**
+ * Generic limited-concurrency map. Avoids pulling in a dependency.
+ */
+async function pMap<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      results[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+export type SyncProgress = { listed: number; fetched: number; skipped: number; failed: number };
+
+/**
+ * Pull recipes from Paprika and apply `onRecipe` per recipe.
+ *
+ * `existingHashes` is a `paprikaUid → hash` map of what we already have in
+ * the local DB. Entries whose remote hash matches the local one are skipped
+ * entirely — that's the fast path that turns a 1000-recipe sync from minutes
+ * into seconds.
+ */
+export async function syncRecipesFromPaprika(
+  onRecipe: (recipe: PaprikaRecipe) => Promise<void>,
+  options: { existingHashes?: Map<string, string | null>; concurrency?: number } = {},
+): Promise<SyncProgress> {
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? 5, 10));
+  const existing = options.existingHashes ?? new Map<string, string | null>();
   const token = await loginToPaprika();
   const list = await listRecipeHashes(token);
+
+  const toFetch = list.filter((entry) => {
+    const local = existing.get(entry.uid);
+    if (local === undefined) return true; // unknown locally
+    if (!entry.hash || !local) return true; // unknown hash on either side
+    return local !== entry.hash;
+  });
+
   let fetched = 0;
-  for (const entry of list) {
-    const recipe = await getRecipe(token, entry.uid);
-    await onRecipe(recipe);
-    fetched += 1;
-  }
-  return { listed: list.length, fetched };
+  let failed = 0;
+  await pMap(toFetch, concurrency, async (entry) => {
+    try {
+      const recipe = await getRecipe(token, entry.uid);
+      await onRecipe(recipe);
+      fetched += 1;
+    } catch (error) {
+      failed += 1;
+      console.error("paprika sync: recipe failed", entry.uid, error);
+    }
+  });
+
+  return {
+    listed: list.length,
+    fetched,
+    skipped: list.length - toFetch.length,
+    failed,
+  };
 }
 
 export function gzipJson(value: unknown) {
