@@ -3,7 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon, ListCheckIcon, MenuIcon } from "./icons";
-import { glyphFor, tileVariantFor, type TileVariant } from "./recipe-color-tile";
+import { tileVariantFor, type TileVariant } from "./recipe-color-tile";
+import { RecipeImageTile } from "./recipe-image-tile";
 import { RecipeStars } from "./recipe-stars";
 
 export type RecipeModalSubject = {
@@ -156,10 +157,7 @@ export function RecipeModal({
               aria-modal="true"
               aria-labelledby={headingId}
             >
-              <div className={`modal-hero recipe-img ${tileVariant}`}>
-                <span className="recipe-img-glyph" aria-hidden>
-                  {glyphFor(displayTitle)}
-                </span>
+              <RecipeImageTile recipeId={recipe.id} name={displayTitle} variant={tileVariant} className="modal-hero" priority>
                 <button
                   ref={closeRef}
                   className="modal-close"
@@ -169,7 +167,7 @@ export function RecipeModal({
                 >
                   <CloseIcon />
                 </button>
-              </div>
+              </RecipeImageTile>
               <div className="modal-body">
                 <span className="eyebrow">Rezept · Paprika-Cache</span>
                 <h2 id={headingId}>{displayTitle}</h2>

@@ -54,10 +54,10 @@ export function Sidebar({ counts }: SidebarProps) {
       })}
 
       <div className="sidebar-footer">
-        <button className="sidebar-foot-btn" type="button" disabled aria-label="Einstellungen (bald)">
+        <Link className="sidebar-foot-btn" href="/settings" aria-current={isActive(pathname, "/settings") ? "page" : undefined}>
           <CogIcon />
           Einstellungen
-        </button>
+        </Link>
         <form action="/api/auth/logout" method="post">
           <button className="sidebar-foot-btn" type="submit" style={{ width: "100%" }}>
             <LogoutIcon />

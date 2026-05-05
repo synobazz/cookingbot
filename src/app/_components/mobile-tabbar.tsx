@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookIcon, CalendarIcon, CartIcon, HomeIcon } from "./icons";
+import { BookIcon, CalendarIcon, CartIcon, CogIcon, HomeIcon } from "./icons";
 
 const items = [
   { href: "/", label: "Heute", Icon: HomeIcon },
   { href: "/recipes", label: "Rezepte", Icon: BookIcon },
   { href: "/planner", label: "Plan", Icon: CalendarIcon },
   { href: "/shopping", label: "Einkauf", Icon: CartIcon },
+  { href: "/settings", label: "Setup", Icon: CogIcon },
 ];
 
 function isActive(pathname: string, href: string) {

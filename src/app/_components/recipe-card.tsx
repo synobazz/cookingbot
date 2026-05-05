@@ -1,7 +1,8 @@
 "use client";
 
 import { ClockIcon, PeopleIcon } from "./icons";
-import { glyphFor, tileVariantFor, type TileVariant } from "./recipe-color-tile";
+import { tileVariantFor, type TileVariant } from "./recipe-color-tile";
+import { RecipeImageTile } from "./recipe-image-tile";
 import { RecipeModal, type RecipeModalSubject } from "./recipe-modal";
 import { RecipeStars } from "./recipe-stars";
 
@@ -18,10 +19,7 @@ export function RecipeCard({ recipe, variant, topChip, showFavorite = false, ext
   const time = recipe.totalTime || recipe.cookTime || recipe.prepTime;
   return (
     <article className="recipe-card">
-      <div className={`recipe-img ${v}`}>
-        <span className="recipe-img-glyph" aria-hidden>
-          {glyphFor(recipe.name)}
-        </span>
+      <RecipeImageTile recipeId={recipe.id} name={recipe.name} variant={v}>
         {topChip ? (
           <div className="recipe-meta">
             <span className={`chip${topChip.tone && topChip.tone !== "default" ? " " + topChip.tone : ""}`}>
@@ -34,7 +32,7 @@ export function RecipeCard({ recipe, variant, topChip, showFavorite = false, ext
             ♡
           </span>
         ) : null}
-      </div>
+      </RecipeImageTile>
       <div className="recipe-info">
         {typeof recipe.rating === "number" && recipe.rating > 0 ? (
           <RecipeStars rating={recipe.rating} />

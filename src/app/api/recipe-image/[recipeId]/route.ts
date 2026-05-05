@@ -95,7 +95,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ rec
   const recipe = await prisma.recipe.findUnique({ where: { id: recipeId } });
   if (!recipe) return new NextResponse(null, { status: 404 });
 
-  const candidates = [recipe.photoUrl, recipe.imageUrl]
+  const candidates = [recipe.photoUrl, recipe.imageUrl, recipe.photoLarge, recipe.photo]
     .map(normalizeImageUrl)
     .filter(Boolean)
     .filter(isAllowed);
