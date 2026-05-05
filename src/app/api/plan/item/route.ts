@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
       where: { id: item.id },
       data: {
         title: remix.title,
+        recipeId: null,
         isRemix: true,
         remixSource: sourceRecipe?.name || item.title,
         reasoning: remix.reasoning || `Remix von ${sourceRecipe?.name || item.title}`,

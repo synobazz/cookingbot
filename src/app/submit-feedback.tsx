@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function SubmitFeedback() {
+  const [message, setMessage] = useState("");
+
   useEffect(() => {
     function handleSubmit(event: SubmitEvent) {
       const form = event.target instanceof HTMLFormElement ? event.target : null;
       if (!form || form.dataset.submitting === "true") return;
       form.dataset.submitting = "true";
       const submitter = event.submitter instanceof HTMLButtonElement ? event.submitter : form.querySelector<HTMLButtonElement>('button[type="submit"], button:not([type])');
+      const pendingMessage = form.dataset.pendingMessage || submitter?.dataset.pendingMessage || "";
+      if (pendingMessage) setMessage(pendingMessage);
       if (submitter) {
         submitter.dataset.originalText = submitter.textContent || "";
         submitter.disabled = true;
@@ -18,6 +22,7 @@ export function SubmitFeedback() {
     }
 
     function handlePageShow() {
+      setMessage("");
       document.querySelectorAll<HTMLFormElement>('form[data-submitting="true"]').forEach((form) => {
         form.dataset.submitting = "false";
         form.querySelectorAll<HTMLButtonElement>("button.is-loading").forEach((button) => {
@@ -36,5 +41,13 @@ export function SubmitFeedback() {
     };
   }, []);
 
-  return null;
+  if (!message) return null;
+
+  return (
+    <div className="submit-toast" role="status" aria-live="polite">
+      <span className="submit-toast-spinner" aria-hidden />
+      {message}
+    </div>
+  );
 }
+

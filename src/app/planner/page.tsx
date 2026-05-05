@@ -178,10 +178,10 @@ export default async function PlannerPage({
                           Tausch
                         </button>
                       </form>
-                      <form action="/api/plan/item" method="post">
+                      <form action="/api/plan/item" method="post" data-pending-message="Remix wird erstellt… das kann kurz dauern.">
                         <input type="hidden" name="itemId" value={item.id} />
                         <input type="hidden" name="action" value="remix" />
-                        <button className="btn ghost sm" type="submit">
+                        <button className="btn ghost sm" type="submit" data-pending-message="Remix wird erstellt… das kann kurz dauern.">
                           Remix
                         </button>
                       </form>
