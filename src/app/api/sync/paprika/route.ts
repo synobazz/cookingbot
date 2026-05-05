@@ -38,8 +38,15 @@ export async function POST(req: NextRequest) {
   try {
     // Pre-load existing hashes so we can skip unchanged recipes entirely.
     const existing = new Map<string, string | null>();
-    const stored = await prisma.recipe.findMany({ select: { paprikaUid: true, hash: true } });
-    for (const r of stored) existing.set(r.paprikaUid, r.hash);
+    const stored = await prisma.recipe.findMany({
+      select: { paprikaUid: true, hash: true, imageUrl: true, photo: true, photoLarge: true, photoUrl: true },
+    });
+    for (const r of stored) {
+      // Existing caches from before image-field support have matching hashes but
+      // empty image fields. Force one refetch so photos get backfilled.
+      const hasAnyImage = Boolean(r.imageUrl || r.photo || r.photoLarge || r.photoUrl);
+      if (hasAnyImage) existing.set(r.paprikaUid, r.hash);
+    }
 
     const result = await syncRecipesFromPaprika(async (recipe) => {
       const data = recipeData(recipe);

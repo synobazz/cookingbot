@@ -19,20 +19,27 @@ export function RecipeCard({ recipe, variant, topChip, showFavorite = false, ext
   const time = recipe.totalTime || recipe.cookTime || recipe.prepTime;
   return (
     <article className="recipe-card">
-      <RecipeImageTile recipeId={recipe.id} name={recipe.name} variant={v}>
-        {topChip ? (
-          <div className="recipe-meta">
-            <span className={`chip${topChip.tone && topChip.tone !== "default" ? " " + topChip.tone : ""}`}>
-              {topChip.label}
-            </span>
-          </div>
-        ) : null}
-        {showFavorite ? (
-          <span className="recipe-fav" aria-hidden>
-            ♡
-          </span>
-        ) : null}
-      </RecipeImageTile>
+      <RecipeModal
+        recipe={recipe}
+        variant={v}
+        triggerClassName="recipe-image-trigger"
+        triggerLabel={
+          <RecipeImageTile recipeId={recipe.id} name={recipe.name} variant={v}>
+            {topChip ? (
+              <div className="recipe-meta">
+                <span className={`chip${topChip.tone && topChip.tone !== "default" ? " " + topChip.tone : ""}`}>
+                  {topChip.label}
+                </span>
+              </div>
+            ) : null}
+            {showFavorite ? (
+              <span className="recipe-fav" aria-hidden>
+                ♡
+              </span>
+            ) : null}
+          </RecipeImageTile>
+        }
+      />
       <div className="recipe-info">
         {typeof recipe.rating === "number" && recipe.rating > 0 ? (
           <RecipeStars rating={recipe.rating} />
@@ -52,10 +59,11 @@ export function RecipeCard({ recipe, variant, topChip, showFavorite = false, ext
             </span>
           ) : null}
         </div>
-        <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <RecipeModal recipe={recipe} variant={v} triggerLabel="Öffnen" triggerClassName="btn ghost sm" />
-          {extra}
-        </div>
+        {extra ? (
+          <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {extra}
+          </div>
+        ) : null}
       </div>
     </article>
   );

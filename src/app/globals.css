@@ -314,9 +314,11 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .rec-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 
 /* recipe card */
-.recipe-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; cursor: pointer; text-align: left; padding: 0; font: inherit; color: inherit; }
+.recipe-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; text-align: left; padding: 0; font: inherit; color: inherit; }
 .recipe-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--line-strong); }
-.recipe-img { aspect-ratio: 5 / 4; background: linear-gradient(135deg, var(--card-2), var(--paper-2)); position: relative; overflow: hidden; display: grid; place-items: center; }
+.recipe-image-trigger { display: block; width: 100%; border: 0; padding: 0; margin: 0; background: transparent; color: inherit; text-align: inherit; cursor: pointer; }
+.recipe-image-trigger:focus-visible { outline: 3px solid color-mix(in srgb, var(--terra) 55%, transparent); outline-offset: -3px; }
+.recipe-img { aspect-ratio: 5 / 4; width: 100%; background: linear-gradient(135deg, var(--card-2), var(--paper-2)); position: relative; overflow: hidden; display: grid; place-items: center; }
 .recipe-img.terra { background: linear-gradient(135deg, #f4d0bf, #e9bba1); }
 .recipe-img.forest { background: linear-gradient(135deg, #cfdcc6, #a9c0a0); }
 .recipe-img.gold { background: linear-gradient(135deg, #f6e4b8, #e6cb86); }
@@ -437,8 +439,8 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 
 /* =========== Modal =========== */
 .modal-back { position: fixed; inset: 0; z-index: 60; background: rgba(26, 22, 18, 0.5); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade 0.2s; }
-.modal { width: min(720px, 100%); max-height: 90vh; overflow: hidden; background: var(--card); border-radius: 22px; display: grid; grid-template-rows: auto 1fr; box-shadow: var(--shadow-lg); position: relative; animation: slideup 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.modal-hero { height: 200px; background: linear-gradient(135deg, #f4d0bf, #e9bba1); display: grid; place-items: center; position: relative; }
+.modal { width: min(760px, 100%); max-height: 90vh; overflow: hidden; background: var(--card); border-radius: 22px; display: grid; grid-template-rows: auto 1fr; box-shadow: var(--shadow-lg); position: relative; animation: slideup 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.modal-hero { width: 100%; height: clamp(180px, 32vh, 280px); aspect-ratio: auto; background: linear-gradient(135deg, #f4d0bf, #e9bba1); display: grid; place-items: center; position: relative; }
 .modal-hero .recipe-img-glyph { font-size: 4.5rem; color: rgba(26, 22, 18, 0.18); }
 .modal-close { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; border-radius: 10px; border: 0; background: rgba(255, 253, 248, 0.92); color: var(--ink); cursor: pointer; display: grid; place-items: center; box-shadow: var(--shadow-sm); }
 .modal-body { overflow: auto; padding: 26px 28px 28px; }
@@ -541,7 +543,11 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
   .stat-card:last-child { grid-column: 1 / -1; }
   .day { min-height: 110px; }
   .rec-strip, .rec-grid { grid-template-columns: 1fr; gap: 12px; }
-  .recipe-img { aspect-ratio: 16 / 10; }
+  .recipe-img:not(.modal-hero) { aspect-ratio: 16 / 10; }
+  .modal-back { padding: 10px; align-items: stretch; }
+  .modal { max-height: calc(100vh - 20px); align-self: center; }
+  .modal-hero { height: clamp(160px, 26vh, 220px); }
+  .modal-body { padding: 22px 20px 24px; }
   .section-head { align-items: flex-start; flex-direction: column; }
   .settings-stats { grid-template-columns: 1fr; }
 }
