@@ -3,15 +3,6 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { loginToPaprika } from "@/lib/paprika";
 
-/** Hosts we are willing to proxy images from. Strict allowlist to prevent SSRF. */
-const ALLOWED_IMAGE_HOSTS = [
-  "paprikaapp.com",
-  "www.paprikaapp.com",
-  "static.paprikaapp.com",
-  "paprika-sync.s3.amazonaws.com",
-  "s3.amazonaws.com",
-];
-
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MiB
 
@@ -24,6 +15,22 @@ function normalizeImageUrl(value?: string | null) {
   return "";
 }
 
+function isPrivateIp(host: string) {
+  const ipv4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (!ipv4) return false;
+  const [, aRaw, bRaw] = ipv4;
+  const a = Number(aRaw);
+  const b = Number(bRaw);
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 169 && b === 254) ||
+    a === 0
+  );
+}
+
 function isAllowed(url: string) {
   let parsed: URL;
   try {
@@ -33,7 +40,10 @@ function isAllowed(url: string) {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
   const host = parsed.hostname.toLowerCase();
-  return ALLOWED_IMAGE_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+  if (!host || host === "localhost" || host.endsWith(".localhost")) return false;
+  if (host === "::1" || host.startsWith("[")) return false;
+  if (isPrivateIp(host)) return false;
+  return true;
 }
 
 function redirectTarget(currentUrl: string, location: string) {
