@@ -70,11 +70,11 @@ export async function POST(req: NextRequest) {
         model: remixModel(),
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "Du bist eine kreative, familienfreundliche Kochhilfe. Antworte ausschließlich als valides JSON. Erzeuge einen kindertauglichen Abendessen-Remix. Keine alkoholischen Getränke, Cocktails, Drinks, reine Desserts oder Snacks." },
+          { role: "system", content: "Du bist eine kreative, familienfreundliche Kochhilfe. Antworte ausschließlich als valides JSON. Erzeuge einen kindertauglichen Abendessen-Remix aus dem Quellrezept. Keine alkoholischen Getränke, Cocktails, Drinks, reine Desserts oder Snacks. Keine reinen Fertigprodukt-/Nugget-/Dino-/Convenience-Varianten als Lösung." },
           { role: "user", content: JSON.stringify({
-            task: "Mach aus diesem Rezept einen coolen, aber realistisch kochbaren Remix fürs Abendessen.",
+            task: "Mach aus diesem Rezept einen coolen, aber realistisch kochbaren Remix fürs Abendessen. Behalte die Grundidee des Originalrezepts erkennbar bei und ändere Würzung, Beilage, Form oder Sauce sinnvoll.",
             household: "2 Erwachsene und ein 5-jähriges Kind",
-            rules: ["keine alkoholischen Zutaten/Drinks", "familien- und kindertauglich", "konkrete Zutaten und kurze Kochanleitung liefern", "nicht zu experimentell"],
+            rules: ["keine alkoholischen Zutaten/Drinks", "familien- und kindertauglich", "konkrete Zutaten und kurze Kochanleitung liefern", "nicht zu experimentell", "keine bloßen Fertigprodukte wie Knusperdinos, Nuggets oder Tiefkühl-Snacks als Remix"],
             outputSchema: { title: "string", reasoning: "short German reason", ingredients: "newline-separated ingredients", instructions: "short German instructions" },
             source: sourceRecipe ? recipeForPrompt(sourceRecipe) : { name: item.title, ingredients: item.ingredients, instructions: item.instructions },
           }) },

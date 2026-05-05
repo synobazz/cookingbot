@@ -33,6 +33,8 @@ type Props = {
   triggerLabel?: React.ReactNode;
   /** Trigger-Button-Klasse. Default: "btn sm" */
   triggerClassName?: string;
+  /** Optionale Aktionen im geöffneten Modal, z. B. Export-Button. */
+  actionSlot?: React.ReactNode;
 };
 
 function cleanRecipeText(value?: string | null) {
@@ -79,6 +81,7 @@ export function RecipeModal({
   variant,
   triggerLabel = "Rezept öffnen",
   triggerClassName = "btn sm",
+  actionSlot,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -240,17 +243,20 @@ export function RecipeModal({
                     </p>
                   </div>
                 ) : null}
-                {recipe.sourceUrl ? (
-                  <p style={{ margin: "22px 0 0" }}>
-                    <a
-                      className="chip"
-                      href={recipe.sourceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Quelle öffnen ↗
-                    </a>
-                  </p>
+                {(recipe.sourceUrl || actionSlot) ? (
+                  <div className="modal-actions">
+                    {recipe.sourceUrl ? (
+                      <a
+                        className="chip"
+                        href={recipe.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Quelle öffnen ↗
+                      </a>
+                    ) : null}
+                    {actionSlot}
+                  </div>
                 ) : null}
               </div>
             </div>

@@ -190,6 +190,14 @@ export default async function PlannerPage({
                         title={item.title}
                         triggerLabel="Öffnen"
                         triggerClassName="btn sm"
+                        actionSlot={item.isRemix ? (
+                          <form action="/api/paprika/export-remix" method="post">
+                            <input type="hidden" name="itemId" value={item.id} />
+                            <button className="btn sm" type="submit">
+                              Dieses Rezept exportieren
+                            </button>
+                          </form>
+                        ) : null}
                       />
                     </div>
                   </div>

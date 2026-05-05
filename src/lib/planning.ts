@@ -62,9 +62,19 @@ function normalizeText(value: string | null | undefined) {
   return (value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsWholeTerm(text: string, term: string) {
+  const normalizedTerm = normalizeText(term).trim();
+  if (!normalizedTerm) return false;
+  return new RegExp(`(^|[^a-z0-9])${escapeRegex(normalizedTerm)}([^a-z0-9]|$)`, "i").test(text);
+}
+
 export function containsUnsafeDinnerText(value: string | null | undefined) {
   const text = normalizeText(value);
-  return unsafeDinnerNameTerms.some((term) => text.includes(term));
+  return unsafeDinnerNameTerms.some((term) => containsWholeTerm(text, term));
 }
 
 export function isUnsafeDinnerRecipe(recipe: Recipe) {
@@ -74,8 +84,8 @@ export function isUnsafeDinnerRecipe(recipe: Recipe) {
   const notes = normalizeText(recipe.notes || "");
   return (
     containsUnsafeDinnerText(name) ||
-    categories.some((category) => unsafeDinnerCategoryTerms.some((term) => category.includes(term))) ||
-    unsafeDinnerIngredientTerms.some((term) => ingredients.includes(term) || notes.includes(term))
+    categories.some((category) => unsafeDinnerCategoryTerms.some((term) => containsWholeTerm(category, term))) ||
+    unsafeDinnerIngredientTerms.some((term) => containsWholeTerm(ingredients, term) || containsWholeTerm(notes, term))
   );
 }
 

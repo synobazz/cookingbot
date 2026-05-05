@@ -26,6 +26,7 @@ export type ShoppingListData = {
 type Props = {
   list: ShoppingListData | null;
   microsoftConnected: boolean;
+  restoreAvailable: boolean;
 };
 
 function groupItems(items: ShoppingItem[]) {
@@ -39,7 +40,7 @@ function groupItems(items: ShoppingItem[]) {
   return Array.from(map.entries()).sort((a, b) => sortCategoryKey(a[0]) - sortCategoryKey(b[0]));
 }
 
-export function ShoppingBoard({ list, microsoftConnected }: Props) {
+export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [items, setItems] = useState<ShoppingItem[]>(list?.items ?? []);
@@ -84,6 +85,14 @@ export function ShoppingBoard({ list, microsoftConnected }: Props) {
         <p className="muted" style={{ margin: 0 }}>
           Noch keine Einkaufsliste vorhanden. Erstelle einen Plan und generiere daraus eine Liste.
         </p>
+        {restoreAvailable ? (
+          <form action="/api/shopping/bulk" method="post" style={{ marginTop: 18 }}>
+            <input type="hidden" name="action" value="restore" />
+            <button className="btn ghost" type="submit">
+              Liste wiederherstellen
+            </button>
+          </form>
+        ) : null}
       </div>
     );
   }
@@ -115,6 +124,29 @@ export function ShoppingBoard({ list, microsoftConnected }: Props) {
             <DownloadIcon /> Drucken
           </button>
         </div>
+      </div>
+
+      <div className="shop-bulk-actions">
+        <form action="/api/shopping/bulk" method="post">
+          <input type="hidden" name="shoppingListId" value={list.id} />
+          <input type="hidden" name="action" value="complete" />
+          <button className="btn ghost" type="submit" disabled={total === 0 || doneCount === total}>
+            Alle als erledigt markieren
+          </button>
+        </form>
+        <form action="/api/shopping/bulk" method="post">
+          <input type="hidden" name="shoppingListId" value={list.id} />
+          <input type="hidden" name="action" value="delete" />
+          <button className="btn ghost" type="submit" disabled={total === 0}>
+            Liste löschen
+          </button>
+        </form>
+        <form action="/api/shopping/bulk" method="post">
+          <input type="hidden" name="action" value="restore" />
+          <button className="btn ghost" type="submit" disabled={!restoreAvailable}>
+            Liste wiederherstellen
+          </button>
+        </form>
       </div>
 
       {!microsoftConnected ? (

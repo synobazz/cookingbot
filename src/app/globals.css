@@ -409,6 +409,9 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .shop-progress p { margin: 0; color: var(--muted); }
 .shop-progress .acts { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
+.shop-bulk-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: -6px 0 22px; }
+.shop-bulk-actions form { margin: 0; }
+
 .ms-banner { background: linear-gradient(135deg, var(--forest), var(--forest-2)); color: var(--paper); border-radius: 18px; padding: 18px 22px; display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
 .ms-banner .ms-icon { width: 42px; height: 42px; border-radius: 10px; background: rgba(255, 255, 255, 0.12); display: grid; place-items: center; flex: none; }
 .ms-banner .ms-text { flex: 1; }
@@ -447,6 +450,8 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .modal-body { overflow: auto; padding: 26px 28px 28px; }
 .modal-body h2 { font-family: var(--font-fraunces), serif; font-weight: 500; font-size: 1.7rem; letter-spacing: -0.015em; margin: 0 0 6px; line-height: 1.1; }
 .modal-body .modal-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 0.88rem; margin: 8px 0 18px; }
+.modal-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.modal-actions form { margin: 0; }
 .modal-cols { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 22px; }
 .modal-panel h4 { font-family: var(--font-fraunces), serif; font-weight: 500; font-size: 1rem; margin: 0 0 10px; letter-spacing: -0.005em; display: flex; align-items: center; gap: 8px; }
 .modal-panel ul { margin: 0; padding: 0; list-style: none; }
@@ -532,6 +537,8 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
   .filters-spacer, .sort-dd { display: none; }
   .shop-progress { flex-direction: column; align-items: flex-start; gap: 14px; }
   .shop-progress .acts { margin-left: 0; width: 100%; }
+  .shop-bulk-actions { flex-direction: column; }
+  .shop-bulk-actions .btn { width: 100%; }
   .ms-banner { flex-wrap: wrap; }
   .ms-banner .btn { width: 100%; }
   .settings-grid { grid-template-columns: 1fr; }

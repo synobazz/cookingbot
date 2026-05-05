@@ -11,6 +11,9 @@ type SearchParams = {
   exported?: string;
   microsoft?: string;
   list?: string;
+  completed?: string;
+  deleted?: string;
+  restored?: string;
 };
 
 export default async function ShoppingPage({
@@ -21,13 +24,14 @@ export default async function ShoppingPage({
   if (!(await requireAuth())) redirect("/login");
   const params = await searchParams;
 
-  const [lists, microsoftConnection] = await Promise.all([
+  const [lists, microsoftConnection, restoreSetting] = await Promise.all([
     prisma.shoppingList.findMany({
       orderBy: { createdAt: "desc" },
       take: 6,
       include: { items: { orderBy: { order: "asc" } }, mealPlan: true },
     }),
     getMicrosoftConnection(),
+    prisma.appSetting.findUnique({ where: { key: "lastDeletedShoppingList" } }),
   ]);
 
   let todoLists: { id: string; displayName: string }[] = [];
@@ -108,13 +112,28 @@ export default async function ShoppingPage({
           Microsoft To Do verbunden.
         </p>
       ) : null}
+      {params.completed === "all" ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          Alle Einkaufspunkte wurden als erledigt markiert.
+        </p>
+      ) : null}
+      {params.deleted ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          Einkaufsliste gelöscht. Du kannst sie über „Liste wiederherstellen“ zurückholen.
+        </p>
+      ) : null}
+      {params.restored ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          Einkaufsliste wiederhergestellt.
+        </p>
+      ) : null}
       {microsoftError ? (
         <p role="alert" style={{ color: "var(--warn)", marginBottom: 18 }}>
           {microsoftError}
         </p>
       ) : null}
 
-      <ShoppingBoard list={boardData} microsoftConnected={Boolean(microsoftConnection)} />
+      <ShoppingBoard list={boardData} microsoftConnected={Boolean(microsoftConnection)} restoreAvailable={Boolean(restoreSetting)} />
 
       {microsoftConnection && activeList ? (
         <form
