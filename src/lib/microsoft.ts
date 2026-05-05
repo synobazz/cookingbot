@@ -86,7 +86,14 @@ async function refreshMicrosoftToken(connection: MicrosoftConnection) {
 export async function saveMicrosoftConnection(token: TokenResponse) {
   const expiresAt = new Date(Date.now() + Math.max(token.expires_in - 60, 60) * 1000);
   const accessToken = token.access_token;
+  const existing = await getMicrosoftConnection();
+  const refreshToken = token.refresh_token;
+  if (!refreshToken && !existing) {
+    throw new Error("Microsoft did not return a refresh token; reconnect with offline_access consent");
+  }
+
   const me = await graphFetch<GraphMe>("/me", accessToken);
+  const encryptedRefreshToken = refreshToken ? encrypt(refreshToken) : existing?.encryptedRefreshToken;
   return prisma.microsoftConnection.upsert({
     where: { id: CONNECTION_ID },
     create: {
@@ -94,7 +101,7 @@ export async function saveMicrosoftConnection(token: TokenResponse) {
       accountName: me.displayName || "",
       accountEmail: me.mail || me.userPrincipalName || "",
       encryptedAccessToken: encrypt(accessToken),
-      encryptedRefreshToken: encrypt(token.refresh_token || ""),
+      encryptedRefreshToken: encryptedRefreshToken || "",
       expiresAt,
       scopes: token.scope || SCOPES.join(" "),
     },
@@ -102,7 +109,7 @@ export async function saveMicrosoftConnection(token: TokenResponse) {
       accountName: me.displayName || "",
       accountEmail: me.mail || me.userPrincipalName || "",
       encryptedAccessToken: encrypt(accessToken),
-      encryptedRefreshToken: encrypt(token.refresh_token || ""),
+      encryptedRefreshToken,
       expiresAt,
       scopes: token.scope || SCOPES.join(" "),
     },

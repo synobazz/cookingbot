@@ -304,13 +304,17 @@ Bei Git-Stack in Portainer:
 3. Logs prüfen.
 4. App öffnen und Login testen.
 
-Beim Containerstart läuft:
+Beim Containerstart läuft standardmäßig:
 
 ```text
 prisma db push --skip-generate
 ```
 
-Dadurch werden neue SQLite-Felder beim Redeploy automatisch ergänzt.
+Dadurch werden neue SQLite-Felder beim Redeploy automatisch ergänzt. Für die private NAS-/Portainer-Nutzung ist das bewusst bequem gehalten. Falls du später auf manuell verwaltete Prisma-Migrationen umstellst, kannst du den automatischen Sync deaktivieren:
+
+```env
+PRISMA_DB_PUSH_ON_START=false
+```
 
 ## Troubleshooting
 

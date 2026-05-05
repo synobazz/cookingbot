@@ -31,24 +31,61 @@ function isAllowed(url: string) {
   } catch {
     return false;
   }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+  if (parsed.protocol !== "https:") return false;
   const host = parsed.hostname.toLowerCase();
   return ALLOWED_IMAGE_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
 }
 
-async function fetchImage(url: string, token?: string) {
+function redirectTarget(currentUrl: string, location: string) {
+  try {
+    return new URL(location, currentUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+async function fetchImage(url: string, token?: string, redirectsLeft = 3): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       cache: "no-store",
       signal: controller.signal,
-      redirect: "follow",
+      redirect: "manual",
     });
+
+    if ([301, 302, 303, 307, 308].includes(res.status) && redirectsLeft > 0) {
+      const nextUrl = redirectTarget(url, res.headers.get("location") || "");
+      if (!nextUrl || !isAllowed(nextUrl)) return res;
+      return fetchImage(nextUrl, token, redirectsLeft - 1);
+    }
+
+    return res;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function readLimitedBody(res: Response) {
+  if (!res.body) return null;
+
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_IMAGE_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks, total);
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ recipeId: string }> }) {
@@ -85,11 +122,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ rec
     const declaredLength = Number(upstream.headers.get("content-length") || 0);
     if (declaredLength > MAX_IMAGE_BYTES) continue;
 
-    return new NextResponse(upstream.body, {
+    const body = await readLimitedBody(upstream);
+    if (!body) continue;
+
+    return new NextResponse(body, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
-        ...(declaredLength ? { "Content-Length": String(declaredLength) } : {}),
+        "Content-Length": String(body.byteLength),
       },
     });
   }
