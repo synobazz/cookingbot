@@ -564,10 +564,10 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
   .day .add-btn { grid-column: 2; justify-content: flex-start; width: auto; margin-top: 0; padding: 0; border: 0; color: var(--terra); background: transparent; }
   .rec-strip, .rec-grid { grid-template-columns: 1fr; gap: 12px; }
   .recipe-img:not(.modal-hero) { aspect-ratio: 16 / 10; }
-  .modal-back { padding: 10px; align-items: stretch; }
-  .modal { max-height: calc(100vh - 20px); align-self: center; }
-  .modal-hero { height: clamp(160px, 26vh, 220px); }
-  .modal-body { padding: 22px 20px 24px; }
+  .modal-back { padding: max(12px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom)); align-items: flex-start; overflow-y: auto; }
+  .modal { max-height: calc(100dvh - 28px); align-self: flex-start; margin: 0 auto; grid-template-rows: auto minmax(0, 1fr); }
+  .modal-hero { height: clamp(150px, 24dvh, 210px); flex: none; }
+  .modal-body { padding: 22px 20px calc(36px + env(safe-area-inset-bottom)); }
   .section-head { align-items: flex-start; flex-direction: column; }
   .settings-stats { grid-template-columns: 1fr; }
 }
@@ -583,4 +583,15 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 
 @media (max-width: 1024px) {
   .submit-toast { bottom: calc(78px + env(safe-area-inset-bottom)); }
+}
+
+/* =========== Custom date input =========== */
+.date-field { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.date-field .input { text-align: center; }
+.date-nudge { min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card-2); color: var(--ink); font-weight: 800; cursor: pointer; }
+.date-nudge:hover { border-color: var(--line-strong); background: var(--card); }
+
+@media (max-width: 540px) {
+  .date-field { grid-template-columns: 58px minmax(0, 1fr) 58px; }
+  .date-field .input { font-size: 1rem; }
 }
