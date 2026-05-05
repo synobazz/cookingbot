@@ -31,7 +31,7 @@ function isAllowed(url: string) {
   } catch {
     return false;
   }
-  if (parsed.protocol !== "https:") return false;
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
   const host = parsed.hostname.toLowerCase();
   return ALLOWED_IMAGE_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
 }
