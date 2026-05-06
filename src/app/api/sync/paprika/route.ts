@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
       // Existing caches from before image-field support have matching hashes but
       // empty image fields. Force one refetch so photos get backfilled.
       const hasAnyImage = Boolean(r.imageUrl || r.photo || r.photoLarge || r.photoUrl);
-      if (hasAnyImage) existing.set(r.paprikaUid, r.hash);
+      // Lokal erzeugte Rezepte haben keine paprikaUid und kommen nie aus dem Sync.
+      if (hasAnyImage && r.paprikaUid) existing.set(r.paprikaUid, r.hash);
     }
 
     const result = await syncRecipesFromPaprika(async (recipe) => {
