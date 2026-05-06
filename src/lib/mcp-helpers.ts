@@ -13,12 +13,32 @@ import type { MealItemWithPlan } from "@/lib/meal-plan";
 const WEEKDAY_MAP: Record<string, number> = {
   // ISO Wochentag: 1=Mo, 7=So.  date-fns format("i") liefert 1..7.
   montag: 1,
+  mo: 1,
+  mon: 1,
   dienstag: 2,
+  di: 2,
+  die: 2,
+  tue: 2,
   mittwoch: 3,
+  mi: 3,
+  mit: 3,
+  wed: 3,
   donnerstag: 4,
+  do: 4,
+  don: 4,
+  thu: 4,
   freitag: 5,
+  fr: 5,
+  fre: 5,
+  fri: 5,
   samstag: 6,
+  sa: 6,
+  sam: 6,
+  sat: 6,
   sonntag: 7,
+  so: 7,
+  son: 7,
+  sun: 7,
   monday: 1,
   tuesday: 2,
   wednesday: 3,
@@ -30,42 +50,114 @@ const WEEKDAY_MAP: Record<string, number> = {
 
 /**
  * Parst eine deutsche oder englische Datumseingabe in einen Date am Tagesanfang.
- * Akzeptiert ISO (YYYY-MM-DD), "heute"/"today", "morgen"/"tomorrow",
- * "übermorgen"/"day after tomorrow" und Wochentagsnamen.
+ *
+ * Akzeptiert:
+ * - Schlagworte: heute/today, morgen/tomorrow, übermorgen, gestern/yesterday
+ * - Wochentage (lang/kurz): "Donnerstag", "Do", "Mi", "Fri"
+ *   - Wenn der Wochentag heute ist, wird **die nächste Woche** zurückgegeben,
+ *     weil "Donnerstag" am Donnerstag normalerweise "nächsten Donnerstag" meint.
+ *     Für "heute" soll der User explizit "heute" sagen.
+ * - Modifier vor Wochentag: "diesen Mittwoch", "nächsten Mittwoch", "kommenden Mittwoch"
+ *   - "diesen X": gleicher Wochentag → heute, sonst die kommende Vorkommen
+ *   - "nächsten X" / "kommenden X": immer die nächste Vorkommen, niemals heute
+ * - Relativ: "in 3 Tagen", "vor 2 Tagen"
+ * - "nächste Woche" → +7 Tage
+ * - ISO YYYY-MM-DD
+ * - Deutsches Format: 12.05.2026 oder 12.5. (ohne Jahr → aktuelles Jahr)
  *
  * Gibt `null` zurück, wenn nichts erkannt wird.
  */
 export function parseGermanDate(input: string, base = new Date()): Date | null {
-  const value = input.trim().toLowerCase();
+  // Normalisierung: Whitespace zusammenfassen, niedrige Buchstaben.
+  const value = input.trim().toLowerCase().replace(/\s+/g, " ");
   if (!value) return null;
   const today = startOfDay(base);
 
-  if (/^(heute|today)$/.test(value)) return today;
-  if (/^(morgen|tomorrow)$/.test(value)) return addDays(today, 1);
-  if (/^(übermorgen|uebermorgen|day after tomorrow)$/.test(value)) return addDays(today, 2);
-  if (/^(gestern|yesterday)$/.test(value)) return addDays(today, -1);
-
-  // Wochentag → nächstes Vorkommen ab heute (heute eingeschlossen).
-  const targetDow = WEEKDAY_MAP[value];
-  if (targetDow) {
-    const todayDow = Number(format(today, "i"));
-    const offset = (targetDow - todayDow + 7) % 7;
-    return addDays(today, offset);
+  // Schlagworte.
+  if (value === "heute" || value === "today") return today;
+  if (value === "morgen" || value === "tomorrow") return addDays(today, 1);
+  if (value === "übermorgen" || value === "uebermorgen" || value === "day after tomorrow") {
+    return addDays(today, 2);
+  }
+  if (value === "gestern" || value === "yesterday") return addDays(today, -1);
+  if (value === "nächste woche" || value === "naechste woche" || value === "next week") {
+    return addDays(today, 7);
   }
 
-  // ISO-Datum.
+  // Relative: "in 3 tagen", "vor 2 tagen".
+  const relIn = value.match(/^in\s+(\d+)\s+(tag|tagen|days?)$/);
+  if (relIn) {
+    const n = Number(relIn[1]);
+    if (Number.isFinite(n) && n >= 0 && n <= 365) return addDays(today, n);
+  }
+  const relAgo = value.match(/^vor\s+(\d+)\s+(tag|tagen)$/);
+  if (relAgo) {
+    const n = Number(relAgo[1]);
+    if (Number.isFinite(n) && n >= 0 && n <= 365) return addDays(today, -n);
+  }
+
+  // Wochentag mit optionalem Modifier.
+  // "diesen donnerstag" → heute wenn Donnerstag, sonst nächste Vorkommen.
+  // "nächsten donnerstag" → niemals heute, immer mind. +1 Vorkommen.
+  // "donnerstag" → wenn heute Donnerstag, dann +7. Sonst nächste Vorkommen.
+  const dowMatch = value.match(
+    /^(?:(diesen|diese|dieser|nächsten|naechsten|nächste|naechste|kommenden|kommende|am)\s+)?([a-zäö]+)$/,
+  );
+  if (dowMatch) {
+    const modifier = dowMatch[1] || "";
+    const dowKey = dowMatch[2];
+    const targetDow = WEEKDAY_MAP[dowKey];
+    if (targetDow) {
+      const todayDow = Number(format(today, "i"));
+      const offset = (targetDow - todayDow + 7) % 7;
+      const isThisWeek =
+        modifier === "diesen" || modifier === "diese" || modifier === "dieser" || modifier === "am";
+      const isNextWeek =
+        modifier === "nächsten" ||
+        modifier === "naechsten" ||
+        modifier === "nächste" ||
+        modifier === "naechste" ||
+        modifier === "kommenden" ||
+        modifier === "kommende";
+
+      if (offset === 0) {
+        // Heute ist der gefragte Wochentag.
+        if (isThisWeek) return today;
+        // "donnerstag" oder "nächsten donnerstag" am Donnerstag → +7.
+        return addDays(today, 7);
+      }
+      if (isNextWeek) {
+        // Wenn der nächste Vorkommen schon innerhalb der nächsten 6 Tage liegt,
+        // ist das gemeint; "nächsten" verlangt nicht zwingend +7 nach dem Vorkommen.
+        return addDays(today, offset);
+      }
+      return addDays(today, offset);
+    }
+  }
+
+  // ISO-Datum YYYY-MM-DD.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const parsed = parse(value, "yyyy-MM-dd", new Date());
     return isValid(parsed) ? startOfDay(parsed) : null;
   }
 
-  // Deutsches Format: 12.05.2026 oder 12.5.
-  const dotMatch = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})?$/);
+  // Deutsches Format: 12.05.2026 oder 12.5. (ohne Jahr → aktuelles Jahr).
+  const dotMatch = value.match(/^(\d{1,2})\.(\d{1,2})\.?(\d{4})?$/);
   if (dotMatch) {
     const day = Number(dotMatch[1]);
     const month = Number(dotMatch[2]);
+    if (day < 1 || day > 31 || month < 1 || month > 12) return null;
     const year = dotMatch[3] ? Number(dotMatch[3]) : today.getFullYear();
     const candidate = new Date(year, month - 1, day);
+    // Strenge Validierung: bei z. B. 31.02. produziert new Date 03.03.,
+    // also nochmal abgleichen.
+    if (
+      candidate.getFullYear() !== year ||
+      candidate.getMonth() !== month - 1 ||
+      candidate.getDate() !== day
+    ) {
+      return null;
+    }
     return isValid(candidate) ? startOfDay(candidate) : null;
   }
 
