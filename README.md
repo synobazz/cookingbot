@@ -202,6 +202,10 @@ TRUST_PROXY=
 
 # Docker startup
 PRISMA_DB_PUSH_ON_START=true
+
+# MCP server (optional)
+# leer lassen = /mcp ist deaktiviert
+MCP_BEARER_TOKEN=
 ```
 
 ### App / Security
@@ -261,6 +265,12 @@ Redirect URI in Microsoft muss exakt sein:
 ${APP_BASE_URL}/api/microsoft/callback
 ```
 
+### MCP-Server
+
+| Variable | Pflicht | Beispiel | Beschreibung |
+|---|---:|---|---|
+| `MCP_BEARER_TOKEN` | nein | leer lassen oder eigener Secret-Wert | Aktiviert den `/mcp`-Endpoint. Ohne Wert bleibt der MCP-Server bewusst deaktiviert und antwortet mit HTTP 503. Der Secret-Wert gehört nur in `.env`, Portainer-Environment oder die lokale Claude-Connector-Konfiguration — niemals in README, Git oder Screenshots. Mindestlänge in Production: 32 Zeichen. |
+
 ### Runtime / Docker
 
 | Variable | Pflicht | Beispiel | Beschreibung |
@@ -268,7 +278,6 @@ ${APP_BASE_URL}/api/microsoft/callback
 | `PORT` | nein | `3000` | Wird von `npm start` genutzt. Im Docker-Image ist intern Port `3000` vorgesehen. |
 | `NODE_ENV` | nein | `production` | Wird im Dockerfile automatisch gesetzt. Normalerweise nicht manuell ändern. |
 | `NEXT_TELEMETRY_DISABLED` | nein | `1` | Im Dockerfile automatisch gesetzt. |
-| `MCP_BEARER_TOKEN` | nein | `lange-Zufallszeichenkette` | Aktiviert den `/mcp`-Endpoint für externe LLM-Clients. Ohne Wert antwortet `/mcp` mit HTTP 503. Siehe [MCP-Server für Claude](#mcp-server-für-claude). |
 
 ## Setup lokal
 
@@ -429,25 +438,56 @@ MICROSOFT_TENANT_ID=consumers
 
 ## MCP-Server für Claude
 
-cookingbot stellt unter `/mcp` einen [Model Context Protocol](https://modelcontextprotocol.io/)-Server bereit, mit dem Claude Desktop oder Claude.ai (Custom Connector) den Wochenplan lesen und ändern kann. Der Endpoint nutzt Streamable HTTP mit JSON-Antworten und ist statisch per Bearer-Token geschützt.
+cookingbot stellt unter `/mcp` einen [Model Context Protocol](https://modelcontextprotocol.io/)-Server bereit. Damit können Claude Desktop oder Claude.ai den Wochenplan lesen und — nach Bestätigung — einzelne Gerichte ändern.
+
+Der Endpoint nutzt Streamable HTTP mit JSON-Antworten. Aus Sicherheitsgründen ist er standardmäßig deaktiviert und wird erst aktiv, wenn `MCP_BEARER_TOKEN` als Environment-Variable gesetzt ist.
+
+> Wichtig: Der geheime Token-Wert gehört **nicht** in die README, nicht ins Git-Repo und nicht in Screenshots. In dieser Anleitung stehen deshalb nur Platzhalter bzw. ENV-Namen, kein echter Bearer-Wert.
 
 ### Aktivieren
 
-1. Token erzeugen, z. B. mit `openssl rand -base64 48`.
-2. `MCP_BEARER_TOKEN=<dein-token>` in der Umgebung der App setzen (in Portainer als Environment-Variable, lokal in `.env`).
-3. Container neu starten. Solange das Token gesetzt ist, antwortet `GET /mcp` ohne Auth mit HTTP 401, ansonsten mit HTTP 503.
-4. Quick-Test:
+1. Einen langen zufälligen Token erzeugen:
+
    ```bash
-   curl -i -X POST https://cookingbot.example.com/mcp \
-     -H "Authorization: Bearer $MCP_BEARER_TOKEN" \
-     -H "Content-Type: application/json" \
-     -H "Accept: application/json, text/event-stream" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+   openssl rand -base64 48
    ```
+
+2. Den Wert als `MCP_BEARER_TOKEN` setzen:
+   - lokal in `.env`
+   - in Portainer als Stack Environment Variable
+   - bei anderen Deployments als normale Server-ENV
+
+   ```env
+   MCP_BEARER_TOKEN=<nicht-in-git-eintragen>
+   ```
+
+3. Container/App neu starten.
+4. Verhalten prüfen:
+   - `MCP_BEARER_TOKEN` leer → `/mcp` antwortet mit HTTP 503
+   - Token gesetzt, aber Request ohne Auth → HTTP 401
+   - Token gesetzt und Client korrekt konfiguriert → MCP Tools sind verfügbar
+
+Optionaler lokaler Test, ohne den Token in die Shell-History zu schreiben:
+
+```bash
+read -s MCP_BEARER_TOKEN
+curl -i -X POST https://cookingbot.example.com/mcp \
+  -H "Authorization: Bearer $MCP_BEARER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+unset MCP_BEARER_TOKEN
+```
 
 ### Claude Desktop einrichten
 
-Öffne `~/Library/Application Support/Claude/claude_desktop_config.json` und ergänze:
+Claude Desktop liest die MCP-Konfiguration aus:
+
+```text
+~/Library/Application Support/Claude/claude_desktop_config.json
+```
+
+Beispielkonfiguration mit Platzhalter — den echten Secret-Wert lokal einsetzen, aber nicht committen:
 
 ```json
 {
@@ -457,7 +497,7 @@ cookingbot stellt unter `/mcp` einen [Model Context Protocol](https://modelconte
         "type": "streamable-http",
         "url": "https://cookingbot.example.com/mcp",
         "headers": {
-          "Authorization": "Bearer DEIN_TOKEN_HIER"
+          "Authorization": "Bearer <lokaler-mcp-token>"
         }
       }
     }
@@ -465,11 +505,16 @@ cookingbot stellt unter `/mcp` einen [Model Context Protocol](https://modelconte
 }
 ```
 
-Claude neu starten. In jedem Chat erscheint cookingbot dann als Tool-Quelle.
+Danach Claude Desktop neu starten. In neuen Chats erscheint cookingbot dann als Tool-Quelle.
 
 ### Claude.ai (Web)
 
-Unter **Settings → Connectors → Add custom connector** einen Streamable-HTTP-Connector mit der URL `https://cookingbot.example.com/mcp` und dem Header `Authorization: Bearer …` anlegen.
+Unter **Settings → Connectors → Add custom connector** einen Streamable-HTTP-Connector anlegen:
+
+- URL: `https://cookingbot.example.com/mcp`
+- Auth/Header: lokal den gleichen Secret-Wert verwenden, der serverseitig als `MCP_BEARER_TOKEN` gesetzt ist
+
+Auch hier gilt: Den Secret-Wert nur im Connector hinterlegen, nicht dokumentieren oder teilen.
 
 ### Verfügbare Tools
 
