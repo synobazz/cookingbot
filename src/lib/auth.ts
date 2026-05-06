@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { adminPassword, sessionSecret } from "@/lib/env";
+import { adminPassword, mcpBearerToken, sessionSecret } from "@/lib/env";
 
 const COOKIE_NAME = "cookingbot_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -63,3 +63,44 @@ export async function clearSessionCookie() {
 }
 
 export { COOKIE_NAME };
+
+/* ── MCP Bearer-Auth ─────────────────────────────────────────────── */
+
+export type McpAuthResult =
+  | { ok: true }
+  | { ok: false; status: 401 | 503; message: string };
+
+/**
+ * Prüft den Authorization-Header eines MCP-Requests gegen `MCP_BEARER_TOKEN`
+ * mit konstantzeit-Vergleich. Gibt strukturierte Ergebnisse zurück, damit
+ * Aufrufer entscheiden können, wie sie antworten (HTTP 401 vs. 503).
+ *
+ * - 503 wenn `MCP_BEARER_TOKEN` nicht gesetzt ist (MCP-Endpoint deaktiviert).
+ * - 401 wenn Header fehlt, falsches Schema hat oder Token nicht passt.
+ */
+export function verifyMcpBearer(authorizationHeader: string | null | undefined): McpAuthResult {
+  const expected = mcpBearerToken();
+  if (!expected) {
+    return {
+      ok: false,
+      status: 503,
+      message: "MCP server disabled: MCP_BEARER_TOKEN is not configured",
+    };
+  }
+  const header = (authorizationHeader || "").trim();
+  if (!header) {
+    return { ok: false, status: 401, message: "Missing Authorization header" };
+  }
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  if (!match) {
+    return { ok: false, status: 401, message: "Authorization header must use the Bearer scheme" };
+  }
+  const presented = match[1]!.trim();
+  if (presented.length === 0) {
+    return { ok: false, status: 401, message: "Empty bearer token" };
+  }
+  if (!safeEqual(presented, expected)) {
+    return { ok: false, status: 401, message: "Invalid bearer token" };
+  }
+  return { ok: true };
+}

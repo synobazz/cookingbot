@@ -14,6 +14,25 @@ function masked(value?: string | null) {
   return `${value.slice(0, 4)}…${value.slice(-4)}`;
 }
 
+/** Entfernt Credentials aus DB-URLs und zeigt nur Schema/Host/Datenbank. */
+function maskedDatabaseUrl(value?: string | null) {
+  const raw = (value || "").trim();
+  if (!raw) return "Nicht gesetzt";
+  try {
+    const url = new URL(raw);
+    const host = url.host || "";
+    const dbPath = url.pathname && url.pathname !== "/" ? url.pathname : "";
+    const proto = url.protocol.replace(":", "");
+    const userPart = url.username ? `${url.username}:••••@` : "";
+    if (!host && !dbPath) return "••••";
+    return `${proto}://${userPart}${host}${dbPath}`;
+  } catch {
+    // Nicht-URL (z. B. file:./dev.db oder SQLite-Pfad): nur Schema oder Dateinamen zeigen.
+    if (raw.startsWith("file:")) return raw;
+    return "••••";
+  }
+}
+
 export default async function SettingsPage() {
   if (!(await requireAuth())) redirect("/login");
 
@@ -54,7 +73,7 @@ export default async function SettingsPage() {
           <h2 className="section">Deployment</h2>
           <dl className="settings-list">
             <div><dt>APP_BASE_URL</dt><dd>{appBaseUrl() || "Nicht gesetzt"}</dd></div>
-            <div><dt>Database</dt><dd>{process.env.DATABASE_URL || "Nicht gesetzt"}</dd></div>
+            <div><dt>Database</dt><dd>{maskedDatabaseUrl(process.env.DATABASE_URL)}</dd></div>
             <div><dt>Proxy vertrauen</dt><dd>{process.env.TRUST_PROXY === "true" ? "Ja" : "Nein"}</dd></div>
             <div><dt>DB Push beim Start</dt><dd>{process.env.PRISMA_DB_PUSH_ON_START === "false" ? "Aus" : "Ein"}</dd></div>
           </dl>
