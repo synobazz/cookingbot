@@ -119,3 +119,21 @@ export function microsoftConfig(): {
     redirectUri: `${baseUrl.replace(/\/$/, "")}/api/microsoft/callback`,
   };
 }
+
+/* ── MCP ──────────────────────────────────────────────────────────── */
+
+/**
+ * Bearer-Token, das der MCP-Server zwingend für jeden Request verlangt.
+ * Setze einen langen Zufallswert (mind. 32 Zeichen) in `MCP_BEARER_TOKEN`.
+ * Ist der Wert nicht gesetzt, ist der MCP-Endpunkt deaktiviert (return 503).
+ */
+export function mcpBearerToken(): string | undefined {
+  const value = readString("MCP_BEARER_TOKEN");
+  if (!value) return undefined;
+  if (value.length < 32) {
+    if (isProduction()) {
+      throw new Error("MCP_BEARER_TOKEN must be at least 32 characters long");
+    }
+  }
+  return value;
+}
