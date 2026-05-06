@@ -9,6 +9,16 @@
  * Das ist robust gegenüber Next.js-Hot-Reload und Multi-Instanz-Deployments,
  * verzichtet aber auf SSE-Resume-Funktionalität (für unseren Use-Case
  * unkritisch — Tool-Aufrufe sind kurz, kein Streaming nötig).
+ *
+ * Method-Handling:
+ * - POST: Standard-Pfad für JSON-RPC (Tool-Aufrufe).
+ * - GET / DELETE: Im stateless Modus existiert weder ein resumable
+ *   SSE-Stream noch eine Session zum Schließen. Wir laufen sie aber
+ *   trotzdem durch den Transport, damit die SDK-konformen 405/406-
+ *   Antworten zurückgegeben werden, statt Next-Default-Routing.
+ * - PUT/PATCH: bewusst nicht exportiert — Next antwortet automatisch
+ *   mit 405. Das ist eine zusätzliche Verteidigungsebene gegen
+ *   Tooling-Fehlkonfiguration.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
@@ -68,3 +78,38 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   return handle(req);
 }
+
+// Eine Method-Allowlist als zusätzliche Sicherheits- und Diagnose-Schicht.
+// Wenn ein falsch konfigurierter Client mit PUT/PATCH/HEAD anklopft, bekommt
+// er sofort eine sprechende 405-Antwort mit Allow-Header zurück, statt eine
+// Next-default-Antwort, bei der man rätseln muss.
+const ALLOW_HEADER = "GET, POST, DELETE";
+
+function methodNotAllowed(): Response {
+  return new NextResponse(
+    JSON.stringify({ error: "Method not allowed", allow: ALLOW_HEADER }),
+    {
+      status: 405,
+      headers: {
+        "content-type": "application/json",
+        allow: ALLOW_HEADER,
+      },
+    },
+  );
+}
+
+export async function PUT() {
+  return methodNotAllowed();
+}
+
+export async function PATCH() {
+  return methodNotAllowed();
+}
+
+export async function HEAD() {
+  return methodNotAllowed();
+}
+
+// Kein OPTIONS-Handler: Cookingbot-MCP wird ausschließlich serverseitig
+// von Claude Desktop bzw. dem Claude-Connector aufgerufen, nicht aus dem
+// Browser. Ohne CORS-Header ist die Angriffsfläche minimal.
