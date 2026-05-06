@@ -14,6 +14,7 @@ cookingbot ist als private NAS-/Portainer-App gedacht: Paprika-Rezepte lokal syn
 - [Docker Compose](#docker-compose)
 - [Portainer / NAS](#portainer--nas)
 - [Microsoft To Do einrichten](#microsoft-to-do-einrichten)
+- [MCP-Server für Claude](#mcp-server-für-claude)
 - [Typischer Workflow](#typischer-workflow)
 - [Daten, Backup und Updates](#daten-backup-und-updates)
 - [Entwicklung](#entwicklung)
@@ -267,6 +268,7 @@ ${APP_BASE_URL}/api/microsoft/callback
 | `PORT` | nein | `3000` | Wird von `npm start` genutzt. Im Docker-Image ist intern Port `3000` vorgesehen. |
 | `NODE_ENV` | nein | `production` | Wird im Dockerfile automatisch gesetzt. Normalerweise nicht manuell ändern. |
 | `NEXT_TELEMETRY_DISABLED` | nein | `1` | Im Dockerfile automatisch gesetzt. |
+| `MCP_BEARER_TOKEN` | nein | `lange-Zufallszeichenkette` | Aktiviert den `/mcp`-Endpoint für externe LLM-Clients. Ohne Wert antwortet `/mcp` mit HTTP 503. Siehe [MCP-Server für Claude](#mcp-server-für-claude). |
 
 ## Setup lokal
 
@@ -424,6 +426,67 @@ MICROSOFT_TENANT_ID=consumers
 
 8. In cookingbot unter **Einkauf** auf **Microsoft To Do verbinden** klicken.
 9. Einloggen und pro Einkaufsliste die gewünschte To-Do-Liste auswählen.
+
+## MCP-Server für Claude
+
+cookingbot stellt unter `/mcp` einen [Model Context Protocol](https://modelcontextprotocol.io/)-Server bereit, mit dem Claude Desktop oder Claude.ai (Custom Connector) den Wochenplan lesen und ändern kann. Der Endpoint nutzt Streamable HTTP mit JSON-Antworten und ist statisch per Bearer-Token geschützt.
+
+### Aktivieren
+
+1. Token erzeugen, z. B. mit `openssl rand -base64 48`.
+2. `MCP_BEARER_TOKEN=<dein-token>` in der Umgebung der App setzen (in Portainer als Environment-Variable, lokal in `.env`).
+3. Container neu starten. Solange das Token gesetzt ist, antwortet `GET /mcp` ohne Auth mit HTTP 401, ansonsten mit HTTP 503.
+4. Quick-Test:
+   ```bash
+   curl -i -X POST https://cookingbot.example.com/mcp \
+     -H "Authorization: Bearer $MCP_BEARER_TOKEN" \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+   ```
+
+### Claude Desktop einrichten
+
+Öffne `~/Library/Application Support/Claude/claude_desktop_config.json` und ergänze:
+
+```json
+{
+  "mcpServers": {
+    "cookingbot": {
+      "transport": {
+        "type": "streamable-http",
+        "url": "https://cookingbot.example.com/mcp",
+        "headers": {
+          "Authorization": "Bearer DEIN_TOKEN_HIER"
+        }
+      }
+    }
+  }
+}
+```
+
+Claude neu starten. In jedem Chat erscheint cookingbot dann als Tool-Quelle.
+
+### Claude.ai (Web)
+
+Unter **Settings → Connectors → Add custom connector** einen Streamable-HTTP-Connector mit der URL `https://cookingbot.example.com/mcp` und dem Header `Authorization: Bearer …` anlegen.
+
+### Verfügbare Tools
+
+| Tool | Zweck |
+|---|---|
+| `ping` | Verbindungs- und Auth-Test. |
+| `getMealForDay` | Was steht für „heute“, „morgen“ oder ein konkretes Datum auf dem Plan? |
+| `getMealPlan` | Wochenplan in einem Datumsbereich. |
+| `searchRecipes` | Rezeptsuche im lokalen Cache (kompakt oder mit Details). |
+| `findRecipeByCraving` | Freitext-Suche mit Top-Treffern inkl. Zutaten/Zeiten. |
+| `getShoppingList` | Aktuelle oder konkrete Einkaufsliste, gruppiert nach Kategorie. |
+| `setMealForDay` | Bestehendes Rezept einem Tag zuweisen. |
+| `replaceMealForDay` | Tag neu planen lassen (gleicher Pfad wie der „Neu planen“-Button). |
+| `createRecipeFromIngredients` | Aus einer Zutatenliste ein Rezept erzeugen, optional gleich einplanen. |
+| `undoLastMealChange` | Letzten Schreibzugriff der Schreibtools rückgängig machen (eine Stufe). |
+
+Alle Schreibtools speichern vor der Änderung einen Snapshot des betroffenen MealItems im `AppSetting`-Store. `undoLastMealChange` stellt diesen Snapshot wieder her und löscht das Backup.
 
 ## Typischer Workflow
 

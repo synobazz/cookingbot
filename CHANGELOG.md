@@ -6,6 +6,11 @@ Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Added
+- **MCP-Server unter `/mcp`** — Cookingbot exponiert acht Tools (`getMealForDay`, `getMealPlan`, `searchRecipes`, `getShoppingList`, `findRecipeByCraving`, `setMealForDay`, `replaceMealForDay`, `createRecipeFromIngredients`) plus `undoLastMealChange` für externe LLM-Clients wie Claude Desktop. Authentifizierung per statischem Bearer-Token (`MCP_BEARER_TOKEN`); ohne gesetztes Token antwortet der Endpoint mit HTTP 503. Schreibtools speichern vor jeder Änderung ein einstufiges Undo-Backup im `AppSetting`-Store.
+- **Recipe-Origin** (`origin`-Feld auf `Recipe`) zur Unterscheidung von Paprika-Sync, lokalen LLM-Generaten und manuell angelegten Rezepten. `paprikaUid` ist jetzt nullable, wodurch der Paprika-Sync lokale Rezepte nicht mehr überschreibt.
+- **Service-Layer** (`src/lib/planner.ts`, `src/lib/remix.ts`, `src/lib/meal-plan.ts`, `src/lib/shopping.ts`) extrahiert die Domänen-Logik aus den API-Routen, sodass MCP-Tools, Routes und potentielle Tests dieselben Funktionen verwenden.
+
 ### Security
 - `DATABASE_URL` wird auf der Einstellungsseite maskiert (Schema, User, Host, DB-Name sichtbar – Passwort entfernt), sodass Screenshots oder Screen-Sharing keine Zugangsdaten preisgeben.
 
