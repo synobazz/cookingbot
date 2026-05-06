@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import pkg from "../../package.json" with { type: "json" };
 
 /**
  * Erstellt eine vorkonfigurierte MCP-Server-Instanz für Cookingbot.
@@ -14,7 +15,8 @@ export function createCookingbotMcpServer(): McpServer {
   const server = new McpServer(
     {
       name: "cookingbot",
-      version: "0.3.0",
+      // Version aus package.json halten, damit sie nicht gegen Released-Tags driftet.
+      version: pkg.version,
       title: "Cookingbot",
     },
     {
@@ -23,7 +25,7 @@ export function createCookingbotMcpServer(): McpServer {
         tools: { listChanged: false },
       },
       instructions:
-        "Cookingbot ist ein familieneigener Speiseplaner. Du kannst über Tools den Wochenplan lesen, einzelne Tagesgerichte tauschen, Rezepte suchen und neue Rezepte aus vorhandenen Zutaten erzeugen. Antworte auf Deutsch und denke an einen 5-jährigen Mitesser: kindertaugliche Gerichte, kein Alkohol, keine reinen Snacks oder Süßspeisen als Abendessen.",
+        "Cookingbot ist ein familieneigener Speiseplaner. Du kannst über Tools den Wochenplan lesen, einzelne Tagesgerichte tauschen, Rezepte suchen und neue Rezepte aus vorhandenen Zutaten erzeugen. Antworte auf Deutsch und denke an einen 5-jährigen Mitesser: kindertaugliche Gerichte, kein Alkohol, keine reinen Snacks oder Süßspeisen als Abendessen. Nutze Lese-Tools (getMealForDay, getMealPlan, searchRecipes, getShoppingList) frei. Vor destruktiven Aktionen (replaceMealForDay, setMealForDay, createRecipeFromIngredients mit planForDate) bestätige kurz mit dem User, was gleich passiert; nutze undoLastMealChange wenn etwas zurückgenommen werden soll.",
     },
   );
   return server;
