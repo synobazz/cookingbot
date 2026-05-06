@@ -75,6 +75,29 @@ function parseSteps(raw: string): string[] {
     .filter(Boolean);
 }
 
+// Modul-globaler Counter, damit verschachtelte/parallele Modals den body-scroll-lock konsistent
+// auf-/abbauen. Das letzte Modal stellt das ursprüngliche overflow wieder her.
+let scrollLockCount = 0;
+let originalBodyOverflow = "";
+
+function lockBodyScroll() {
+  if (typeof document === "undefined") return;
+  if (scrollLockCount === 0) {
+    originalBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  scrollLockCount += 1;
+}
+
+function unlockBodyScroll() {
+  if (typeof document === "undefined") return;
+  scrollLockCount = Math.max(0, scrollLockCount - 1);
+  if (scrollLockCount === 0) {
+    document.body.style.overflow = originalBodyOverflow;
+    originalBodyOverflow = "";
+  }
+}
+
 export function RecipeModal({
   recipe,
   title,
@@ -134,13 +157,16 @@ export function RecipeModal({
       }
     };
     closeRef.current?.focus();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       window.removeEventListener("keydown", onKey);
-      triggerRef.current?.focus();
+      // Fokus nur zurückgeben, wenn der Trigger noch existiert (Card kann unmounted sein).
+      const trigger = triggerRef.current;
+      if (trigger && document.body.contains(trigger)) {
+        trigger.focus();
+      }
     };
   }, [open]);
 

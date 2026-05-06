@@ -110,27 +110,32 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.shoppingList.findUnique({ where: { mealPlanId: backup.list.mealPlanId } });
   if (existing) return redirectShopping(req, { list: existing.id, error: "Für diesen Plan existiert bereits eine Einkaufsliste" });
 
-  const restored = await prisma.shoppingList.create({
-    data: {
-      mealPlanId: backup.list.mealPlanId,
-      title: backup.list.title,
-      microsoftListId: backup.list.microsoftListId || "",
-      microsoftListName: backup.list.microsoftListName || "",
-      lastMicrosoftSyncAt: backup.list.lastMicrosoftSyncAt ? new Date(backup.list.lastMicrosoftSyncAt) : undefined,
-      items: {
-        create: backup.list.items.map((item) => ({
-          name: item.name,
-          quantity: item.quantity || "",
-          category: item.category || "",
-          checked: item.checked,
-          source: item.source || "",
-          order: item.order,
-          microsoftTaskId: item.microsoftTaskId || "",
-          microsoftTaskUrl: item.microsoftTaskUrl || "",
-          microsoftSyncedAt: item.microsoftSyncedAt ? new Date(item.microsoftSyncedAt) : undefined,
-        })),
+  const restored = await prisma.$transaction(async (tx) => {
+    const created = await tx.shoppingList.create({
+      data: {
+        mealPlanId: backup.list.mealPlanId,
+        title: backup.list.title,
+        microsoftListId: backup.list.microsoftListId || "",
+        microsoftListName: backup.list.microsoftListName || "",
+        lastMicrosoftSyncAt: backup.list.lastMicrosoftSyncAt ? new Date(backup.list.lastMicrosoftSyncAt) : undefined,
+        items: {
+          create: backup.list.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity || "",
+            category: item.category || "",
+            checked: item.checked,
+            source: item.source || "",
+            order: item.order,
+            microsoftTaskId: item.microsoftTaskId || "",
+            microsoftTaskUrl: item.microsoftTaskUrl || "",
+            microsoftSyncedAt: item.microsoftSyncedAt ? new Date(item.microsoftSyncedAt) : undefined,
+          })),
+        },
       },
-    },
+    });
+    // Backup nach erfolgreichem Restore entfernen, damit Folge-Restores nicht duplizieren.
+    await tx.appSetting.delete({ where: { key: BACKUP_KEY } });
+    return created;
   });
   return redirectShopping(req, { list: restored.id, restored: "shopping-list" });
 }

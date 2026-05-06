@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { glyphFor, tileVariantFor, type TileVariant } from "./recipe-color-tile";
 
 type Props = {
@@ -14,6 +14,10 @@ type Props = {
 
 export function RecipeImageTile({ recipeId, name, variant, className, children, priority = false }: Props) {
   const [failed, setFailed] = useState(false);
+  // Wenn der Wrapper auf ein anderes Rezept wechselt, soll das Foto erneut versucht werden.
+  useEffect(() => {
+    setFailed(false);
+  }, [recipeId]);
   const v = variant ?? tileVariantFor(recipeId || name);
   const showImage = Boolean(recipeId) && !failed;
 
