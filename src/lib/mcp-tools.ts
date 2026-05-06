@@ -33,6 +33,7 @@ import {
   parseGermanDate,
 } from "@/lib/mcp-helpers";
 import { fail, ok, type McpToolResult } from "@/lib/mcp-result";
+import { listAuditEntries, withAudit } from "@/lib/mcp-audit";
 import {
   captureMealItemBackup,
   clearMealItemBackup,
@@ -50,8 +51,26 @@ import {
 
 /**
  * Registriert alle Cookingbot-Tools auf einem frisch erstellten MCP-Server.
+ *
+ * Implementierungs-Detail: wir wickeln `server.registerTool` lokal so um,
+ * dass jeder Callback automatisch durch `withAudit` läuft. So müssen die
+ * einzelnen `register…`-Funktionen nichts vom Audit-Log wissen, und es
+ * gibt nur einen Punkt, an dem wir Tool-Aufrufe instrumentieren.
  */
 export function registerCookingbotTools(server: McpServer): void {
+  const originalRegister = server.registerTool.bind(server);
+  // Wir wissen nichts über die genaue Generik der SDK-Signatur — der Wrapper
+  // fasst Args und Result deshalb breit als `unknown`/Record an, was für die
+  // Laufzeit ausreicht (das SDK schickt das Argument unverändert weiter).
+  server.registerTool = ((
+    name: string,
+    config: Parameters<typeof originalRegister>[1],
+    cb: Parameters<typeof originalRegister>[2],
+  ) => {
+    const auditedCb = withAudit(name, cb as (args: unknown) => Promise<McpToolResult>);
+    return originalRegister(name, config, auditedCb as typeof cb);
+  }) as typeof server.registerTool;
+
   registerPing(server);
   registerGetMealForDay(server);
   registerGetMealPlan(server);
@@ -62,6 +81,7 @@ export function registerCookingbotTools(server: McpServer): void {
   registerReplaceMealForDay(server);
   registerCreateRecipeFromIngredients(server);
   registerUndoLastMealChange(server);
+  registerShowRecentMcpActivity(server);
 }
 
 /* ── Ping ─────────────────────────────────────────────────────────── */
@@ -708,6 +728,44 @@ function registerUndoLastMealChange(server: McpServer): void {
         action: snapshot.action,
         capturedAt: snapshot.capturedAt,
         meal: fresh ? compactMealItem(fresh) : undefined,
+      });
+    },
+  );
+}
+
+/* ── showRecentMcpActivity ───────────────────────────────────────── */
+
+function registerShowRecentMcpActivity(server: McpServer): void {
+  server.registerTool(
+    "showRecentMcpActivity",
+    {
+      title: "Letzte MCP-Tool-Aufrufe anzeigen",
+      description:
+        "Liefert die letzten N MCP-Tool-Aufrufe (max. 50) aus dem Audit-Ringbuffer. Praktisch zum Debuggen, wenn unklar ist, ob ein vorhergehender Aufruf wirklich erfolgreich war oder welcher Fehlercode zurückkam. Liefert pro Eintrag Tool-Name, Zeitstempel, Dauer in ms, ok-Flag und (bei Fehlern) den Error-Code sowie eine gekürzte Args-Zusammenfassung.",
+      inputSchema: {
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Wie viele Einträge zurückgegeben werden (default 20, max 50)."),
+      },
+      annotations: {
+        title: "Letzte MCP-Tool-Aufrufe anzeigen",
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ limit }): Promise<McpToolResult> => {
+      const entries = await listAuditEntries(limit ?? 20);
+      // Reihenfolge: neueste zuerst, damit der Client die letzten Aktionen
+      // gleich sieht ohne durchscrollen zu müssen.
+      const ordered = [...entries].reverse();
+      return ok({
+        count: ordered.length,
+        entries: ordered,
       });
     },
   );
