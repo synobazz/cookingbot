@@ -16,6 +16,7 @@ import {
   parseGermanDate,
 } from "@/lib/mcp-helpers";
 import { captureMealItemBackup } from "@/lib/mcp-undo";
+import { createRecipeFromIngredients as createRecipeFromIngredientsFn } from "@/lib/recipe-create";
 import { replanMealItem } from "@/lib/remix";
 import {
   getShoppingListById,
@@ -41,6 +42,7 @@ export function registerCookingbotTools(server: McpServer): void {
   registerFindRecipeByCraving(server);
   registerSetMealForDay(server);
   registerReplaceMealForDay(server);
+  registerCreateRecipeFromIngredients(server);
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -386,5 +388,76 @@ function registerReplaceMealForDay(server: McpServer): void {
   );
 }
 
-// Re-export für Tools, die noch hinzukommen.
+/* ── createRecipeFromIngredients ──────────────────────────────────── */
 
+function registerCreateRecipeFromIngredients(server: McpServer): void {
+  server.registerTool(
+    "createRecipeFromIngredients",
+    {
+      title: "Neues Rezept aus Zutaten erstellen",
+      description:
+        "Lässt das LLM aus einer Liste verfügbarer Zutaten ein konkretes Abendessen-Rezept entwerfen. Das Rezept wird mit `origin='local-llm'` lokal gespeichert (kein Paprika-Sync). Optional kann das neue Rezept direkt einem Tag im Wochenplan zugewiesen werden (`planForDate`).",
+      inputSchema: {
+        ingredients: z
+          .array(z.string().min(1))
+          .min(1)
+          .max(30)
+          .describe("Liste der verfügbaren Zutaten, z. B. ['Hähnchenbrust', 'Reis', 'Brokkoli']."),
+        constraint: z
+          .string()
+          .max(120)
+          .optional()
+          .describe("Optionale Einschränkung wie 'vegetarisch', 'schnell', 'mediterran'."),
+        planForDate: z
+          .string()
+          .optional()
+          .describe(
+            "Wenn gesetzt, wird das Rezept dem MealItem dieses Tages zugewiesen (Backup wird erstellt).",
+          ),
+      },
+    },
+    async ({ ingredients, constraint, planForDate }) => {
+      try {
+        const recipe = await createRecipeFromIngredientsFn({ ingredients, constraint });
+        let plannedFor: string | undefined;
+        let mealUpdate: ReturnType<typeof compactMealItem> | undefined;
+
+        if (planForDate) {
+          const target = parseGermanDate(planForDate);
+          if (!target) {
+            return jsonResult({
+              ok: true,
+              recipe: detailedRecipe(recipe),
+              warning: `Rezept wurde gespeichert, aber Datum '${planForDate}' konnte nicht interpretiert werden.`,
+            });
+          }
+          const existing = await getMealItemForDay(target);
+          if (!existing) {
+            return jsonResult({
+              ok: true,
+              recipe: detailedRecipe(recipe),
+              warning: `Rezept wurde gespeichert, aber für ${isoDate(target)} existiert kein Wochenplan-Eintrag.`,
+            });
+          }
+          await captureMealItemBackup(existing, "createRecipeFromIngredients");
+          const updated = await assignRecipeToMealItem(existing.id, recipe.id);
+          plannedFor = isoDate(target);
+          const fresh = await getMealItemById(updated.id);
+          if (fresh) mealUpdate = compactMealItem(fresh);
+        }
+
+        return jsonResult({
+          ok: true,
+          recipe: detailedRecipe(recipe),
+          plannedFor,
+          meal: mealUpdate,
+          undoHint: plannedFor ? "Zuweisung rückgängig mit 'undoLastMealChange'." : undefined,
+        });
+      } catch (error) {
+        return errorResult(
+          `Rezept-Erstellung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  );
+}
