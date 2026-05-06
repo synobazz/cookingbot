@@ -2,6 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { addDays, startOfDay } from "date-fns";
 import { z } from "zod";
 import {
+  assignRecipeToMealItem,
+  getMealItemById,
   getMealItemForDay,
   getMealItemsInRange,
   searchRecipes as searchRecipesFn,
@@ -13,6 +15,8 @@ import {
   isoDate,
   parseGermanDate,
 } from "@/lib/mcp-helpers";
+import { captureMealItemBackup } from "@/lib/mcp-undo";
+import { replanMealItem } from "@/lib/remix";
 import {
   getShoppingListById,
   getShoppingListByMealPlan,
@@ -34,6 +38,9 @@ export function registerCookingbotTools(server: McpServer): void {
   registerGetMealPlan(server);
   registerSearchRecipes(server);
   registerGetShoppingList(server);
+  registerFindRecipeByCraving(server);
+  registerSetMealForDay(server);
+  registerReplaceMealForDay(server);
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -251,3 +258,133 @@ function registerGetShoppingList(server: McpServer): void {
     },
   );
 }
+
+/* ── findRecipeByCraving ──────────────────────────────────────────── */
+
+function registerFindRecipeByCraving(server: McpServer): void {
+  server.registerTool(
+    "findRecipeByCraving",
+    {
+      title: "Rezept zu einem Heißhunger finden",
+      description:
+        "Sucht passende Rezepte zu einem freien Beschreibungstext (z. B. 'was Cremiges mit Pasta', 'leichtes Sommergericht', 'Hähnchen scharf'). Liefert die Top-Treffer sortiert nach Favoriten/Bewertung. Im Gegensatz zu searchRecipes inkludiert die Antwort kompakte Details (Zutaten, Zeiten), damit das LLM direkt eine Empfehlung formulieren kann.",
+      inputSchema: {
+        craving: z
+          .string()
+          .min(2)
+          .max(200)
+          .describe("Freitext, was der Nutzer essen möchte."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(10)
+          .optional()
+          .describe("Maximale Trefferzahl, default 5."),
+      },
+    },
+    async ({ craving, limit }) => {
+      const recipes = await searchRecipesFn(craving, limit ?? 5);
+      return jsonResult({
+        ok: true,
+        craving,
+        count: recipes.length,
+        recipes: recipes.map(detailedRecipe),
+      });
+    },
+  );
+}
+
+/* ── setMealForDay ────────────────────────────────────────────────── */
+
+function registerSetMealForDay(server: McpServer): void {
+  server.registerTool(
+    "setMealForDay",
+    {
+      title: "Konkretes Rezept für einen Tag setzen",
+      description:
+        "Weist dem MealItem an einem konkreten Tag ein bestehendes Rezept zu. Das Rezept kann direkt per `recipeId` oder per Suchbegriff (`recipeQuery`, dann wird der beste Treffer genommen) angegeben werden. Erfordert, dass für den Tag bereits ein Wochenplan existiert. Speichert vor der Änderung ein Undo-Backup; mit `undoLastMealChange` rückgängig machbar.",
+      inputSchema: {
+        date: z
+          .string()
+          .min(1)
+          .describe("Tag, an dem das Gericht gesetzt werden soll."),
+        recipeId: z.string().optional().describe("ID eines bestehenden Rezepts."),
+        recipeQuery: z
+          .string()
+          .optional()
+          .describe("Alternativer Suchbegriff. Es wird der höchstbewertete Treffer genommen."),
+      },
+    },
+    async ({ date, recipeId, recipeQuery }) => {
+      if (!recipeId && !recipeQuery) return errorResult("Entweder recipeId oder recipeQuery angeben.");
+      const target = parseGermanDate(date);
+      if (!target) return errorResult(`Datum konnte nicht interpretiert werden: '${date}'`);
+
+      let resolvedRecipeId = recipeId;
+      if (!resolvedRecipeId && recipeQuery) {
+        const hits = await searchRecipesFn(recipeQuery, 1);
+        if (hits.length === 0) return errorResult(`Keine Rezepte für '${recipeQuery}' gefunden.`);
+        resolvedRecipeId = hits[0].id;
+      }
+
+      const existing = await getMealItemForDay(target);
+      if (!existing) {
+        return errorResult(
+          `Für ${isoDate(target)} existiert kein Wochenplan-Eintrag. Bitte zuerst einen Plan generieren.`,
+        );
+      }
+      await captureMealItemBackup(existing, "setMealForDay");
+      const updated = await assignRecipeToMealItem(existing.id, resolvedRecipeId!);
+      const fresh = await getMealItemById(updated.id);
+      return jsonResult({
+        ok: true,
+        date: isoDate(target),
+        action: "setMealForDay",
+        meal: fresh ? compactMealItem(fresh) : undefined,
+        undoHint: "Rückgängig mit dem Tool 'undoLastMealChange'.",
+      });
+    },
+  );
+}
+
+/* ── replaceMealForDay ────────────────────────────────────────────── */
+
+function registerReplaceMealForDay(server: McpServer): void {
+  server.registerTool(
+    "replaceMealForDay",
+    {
+      title: "Gericht für einen Tag neu planen",
+      description:
+        "Wirft das aktuell geplante Gericht für einen Tag weg und lässt den Cookingbot-Planner ein neues Rezept dafür wählen (gleiche Logik wie der 'Neu planen'-Button im UI). Speichert ein Undo-Backup; mit `undoLastMealChange` rückgängig machbar.",
+      inputSchema: {
+        date: z.string().min(1).describe("Tag, der neu geplant werden soll."),
+      },
+    },
+    async ({ date }) => {
+      const target = parseGermanDate(date);
+      if (!target) return errorResult(`Datum konnte nicht interpretiert werden: '${date}'`);
+      const existing = await getMealItemForDay(target);
+      if (!existing) return errorResult(`Für ${isoDate(target)} existiert kein Wochenplan-Eintrag.`);
+      await captureMealItemBackup(existing, "replaceMealForDay");
+      try {
+        const updated = await replanMealItem(existing.id);
+        const fresh = await getMealItemById(updated.id);
+        return jsonResult({
+          ok: true,
+          date: isoDate(target),
+          action: "replaceMealForDay",
+          meal: fresh ? compactMealItem(fresh) : undefined,
+          undoHint: "Rückgängig mit dem Tool 'undoLastMealChange'.",
+        });
+      } catch (error) {
+        return errorResult(
+          `Replanung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  );
+}
+
+// Re-export für Tools, die noch hinzukommen.
+
