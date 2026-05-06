@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "../_components/icons";
 import { DayToggleGroup, type DayToggleItem } from "../_components/day-toggle-group";
 import { PeopleStepper } from "../_components/people-stepper";
@@ -12,29 +12,50 @@ type Props = {
   defaultPeople: number;
 };
 
+const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const months = ["Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
+function localIso(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function isoToDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year || new Date().getFullYear(), (month || 1) - 1, day || 1);
+}
+
 function isoToDisplay(value: string) {
-  const [year, month, day] = value.split("-");
-  if (!year || !month || !day) return value;
-  return `${day}.${month}.${year}`;
+  const date = isoToDate(value);
+  return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
 }
 
 function displayToIso(value: string) {
   const trimmed = value.trim();
   const match = trimmed.match(/^(\d{1,2})[.\-/\s](\d{1,2})[.\-/\s](\d{2}|\d{4})$/);
   if (!match) return null;
-  const day = match[1]!.padStart(2, "0");
-  const month = match[2]!.padStart(2, "0");
-  const year = match[3]!.length === 2 ? `20${match[3]}` : match[3]!;
-  const date = new Date(`${year}-${month}-${day}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
-  if (date.getFullYear() !== Number(year) || date.getMonth() + 1 !== Number(month) || date.getDate() !== Number(day)) return null;
-  return `${year}-${month}-${day}`;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]!.length === 2 ? `20${match[3]}` : match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) return null;
+  return localIso(date);
 }
 
 function shiftDays(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00`);
+  const date = isoToDate(value);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return localIso(date);
+}
+
+function calendarDates(year: number, month: number) {
+  const first = new Date(year, month, 1);
+  const offset = (first.getDay() + 6) % 7;
+  const start = new Date(year, month, 1 - offset);
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return date;
+  });
 }
 
 export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople }: Props) {
@@ -42,6 +63,29 @@ export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople
   const [people, setPeople] = useState<number>(defaultPeople);
   const [start, setStart] = useState(defaultStart);
   const [startDisplay, setStartDisplay] = useState(isoToDisplay(defaultStart));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const selectedDate = isoToDate(start);
+  const [viewYear, setViewYear] = useState(selectedDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(selectedDate.getMonth());
+  const dates = useMemo(() => calendarDates(viewYear, viewMonth), [viewYear, viewMonth]);
+  const today = localIso(new Date());
+
+  useEffect(() => {
+    function onPointerDown(event: MouseEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  function setDate(value: string) {
+    const date = isoToDate(value);
+    setStart(value);
+    setStartDisplay(isoToDisplay(value));
+    setViewYear(date.getFullYear());
+    setViewMonth(date.getMonth());
+  }
 
   function commitDisplayDate() {
     const parsed = displayToIso(startDisplay);
@@ -49,14 +93,17 @@ export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople
       setStartDisplay(isoToDisplay(start));
       return;
     }
-    setStart(parsed);
-    setStartDisplay(isoToDisplay(parsed));
+    setDate(parsed);
   }
 
   function shiftStart(offset: number) {
-    const next = shiftDays(start, offset);
-    setStart(next);
-    setStartDisplay(isoToDisplay(next));
+    setDate(shiftDays(start, offset));
+  }
+
+  function shiftMonth(offset: number) {
+    const next = new Date(viewYear, viewMonth + offset, 1);
+    setViewYear(next.getFullYear());
+    setViewMonth(next.getMonth());
   }
 
   return (
@@ -68,27 +115,76 @@ export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople
             Startdatum
           </label>
           <input type="hidden" name="start" value={start} />
-          <div className="date-field">
+
+          <div className="desktop-date-wrap" ref={pickerRef}>
+            <div className="date-field desktop-date-field">
+              <button className="date-nudge" type="button" aria-label="Eine Woche zurück" onClick={() => shiftStart(-7)}>
+                −7
+              </button>
+              <input
+                className="input"
+                id="planner-start-display"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={startDisplay}
+                onFocus={() => setPickerOpen(true)}
+                onChange={(event) => setStartDisplay(event.target.value)}
+                onBlur={commitDisplayDate}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitDisplayDate();
+                    setPickerOpen(false);
+                  }
+                }}
+                placeholder="TT.MM.JJJJ"
+              />
+              <button className="date-picker-toggle" type="button" aria-label="Kalender öffnen" aria-expanded={pickerOpen} onClick={() => setPickerOpen((open) => !open)}>
+                ▾
+              </button>
+              <button className="date-nudge" type="button" aria-label="Eine Woche weiter" onClick={() => shiftStart(7)}>
+                +7
+              </button>
+            </div>
+
+            {pickerOpen ? (
+              <div className="date-popover" role="dialog" aria-label="Kalender zur Datumsauswahl">
+                <div className="date-popover-head">
+                  <button type="button" className="date-month-btn" aria-label="Vorheriger Monat" onClick={() => shiftMonth(-1)}>‹</button>
+                  <strong>{months[viewMonth]} {viewYear}</strong>
+                  <button type="button" className="date-month-btn" aria-label="Nächster Monat" onClick={() => shiftMonth(1)}>›</button>
+                </div>
+                <div className="date-weekdays" aria-hidden="true">
+                  {weekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}
+                </div>
+                <div className="date-grid">
+                  {dates.map((date) => {
+                    const iso = localIso(date);
+                    return (
+                      <button
+                        key={iso}
+                        type="button"
+                        className={`date-day${date.getMonth() !== viewMonth ? " muted" : ""}${iso === start ? " selected" : ""}${iso === today ? " today" : ""}`}
+                        onClick={() => {
+                          setDate(iso);
+                          setPickerOpen(false);
+                        }}
+                      >
+                        {date.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="date-field mobile-date-field">
             <button className="date-nudge" type="button" aria-label="Eine Woche zurück" onClick={() => shiftStart(-7)}>
               −7
             </button>
-            <input
-              className="input"
-              id="planner-start-display"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              value={startDisplay}
-              onChange={(event) => setStartDisplay(event.target.value)}
-              onBlur={commitDisplayDate}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  commitDisplayDate();
-                }
-              }}
-              placeholder="TT.MM.JJJJ"
-            />
+            <input className="input" type="date" value={start} onChange={(event) => setDate(event.target.value)} aria-label="Startdatum" />
             <button className="date-nudge" type="button" aria-label="Eine Woche weiter" onClick={() => shiftStart(7)}>
               +7
             </button>

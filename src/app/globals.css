@@ -332,9 +332,9 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .recipe-img.has-photo { background: var(--card-2); }
 .recipe-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .recipe-img.has-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(26, 22, 18, 0.02), rgba(26, 22, 18, 0.16)); }
-.recipe-img.has-photo > :not(.recipe-photo):not(.modal-close) { position: relative; z-index: 1; }
+.recipe-img.has-photo > :not(.recipe-photo):not(.modal-close):not(.recipe-meta):not(.recipe-fav) { position: relative; z-index: 1; }
 .recipe-img.has-photo > .modal-close { z-index: 2; }
-.recipe-meta { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; }
+.recipe-meta { position: absolute; top: 10px; left: 10px; z-index: 2; display: flex; gap: 6px; align-items: flex-start; justify-content: flex-start; }
 .recipe-meta .chip { font-size: 0.7rem; padding: 4px 8px; background: rgba(255, 253, 248, 0.92); border-color: transparent; }
 .recipe-fav { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 8px; background: rgba(255, 253, 248, 0.92); border: 0; display: grid; place-items: center; cursor: pointer; color: var(--muted); }
 .recipe-fav.on { color: var(--terra); }
@@ -586,12 +586,31 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 }
 
 /* =========== Custom date input =========== */
+.desktop-date-wrap { position: relative; }
 .date-field { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.desktop-date-field { grid-template-columns: auto minmax(0, 1fr) 42px auto; }
+.mobile-date-field { display: none; }
 .date-field .input { text-align: center; }
-.date-nudge { min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card-2); color: var(--ink); font-weight: 800; cursor: pointer; }
-.date-nudge:hover { border-color: var(--line-strong); background: var(--card); }
+.date-nudge, .date-picker-toggle, .date-month-btn { min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--card-2); color: var(--ink); font-weight: 800; cursor: pointer; }
+.date-nudge { padding: 0 12px; }
+.date-picker-toggle { padding: 0; font-size: 1.05rem; }
+.date-nudge:hover, .date-picker-toggle:hover, .date-month-btn:hover { border-color: var(--line-strong); background: var(--card); }
+.date-popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 50; width: 318px; max-width: min(318px, calc(100vw - 42px)); padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(180deg, var(--card), var(--card-2)); box-shadow: var(--shadow-lg); animation: slideup 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.date-popover-head { display: grid; grid-template-columns: 38px 1fr 38px; gap: 8px; align-items: center; margin-bottom: 12px; }
+.date-popover-head strong { text-align: center; font-family: var(--font-fraunces), serif; font-size: 1.08rem; font-weight: 550; letter-spacing: -0.01em; }
+.date-month-btn { min-height: 38px; width: 38px; padding: 0; font-size: 1.35rem; line-height: 1; }
+.date-weekdays, .date-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.date-weekdays { margin-bottom: 5px; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
+.date-weekdays span { padding: 4px 0; }
+.date-day { aspect-ratio: 1; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--ink-2); font: inherit; font-size: 0.86rem; font-weight: 700; cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.12s; }
+.date-day:hover { background: color-mix(in srgb, var(--forest-soft) 78%, transparent); border-color: color-mix(in srgb, var(--forest) 18%, transparent); color: var(--forest); transform: translateY(-1px); }
+.date-day.muted { color: color-mix(in srgb, var(--muted) 52%, transparent); }
+.date-day.today { border-color: color-mix(in srgb, var(--terra) 38%, transparent); color: var(--terra); }
+.date-day.selected { background: var(--forest); border-color: var(--forest); color: var(--paper); box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--forest) 80%, black); }
+.date-day.selected:hover { color: var(--paper); transform: none; }
 
 @media (max-width: 540px) {
-  .date-field { grid-template-columns: 58px minmax(0, 1fr) 58px; }
+  .desktop-date-wrap { display: none; }
+  .mobile-date-field { display: grid; grid-template-columns: 58px minmax(0, 1fr) 58px; }
   .date-field .input { font-size: 1rem; }
 }
