@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { addDays, startOfDay } from "date-fns";
 import { z } from "zod";
+import { prisma } from "@/lib/db";
 import {
   assignRecipeToMealItem,
   getMealItemById,
@@ -15,7 +16,7 @@ import {
   isoDate,
   parseGermanDate,
 } from "@/lib/mcp-helpers";
-import { captureMealItemBackup } from "@/lib/mcp-undo";
+import { captureMealItemBackup, clearMealItemBackup, readMealItemBackup } from "@/lib/mcp-undo";
 import { createRecipeFromIngredients as createRecipeFromIngredientsFn } from "@/lib/recipe-create";
 import { replanMealItem } from "@/lib/remix";
 import {
@@ -43,6 +44,7 @@ export function registerCookingbotTools(server: McpServer): void {
   registerSetMealForDay(server);
   registerReplaceMealForDay(server);
   registerCreateRecipeFromIngredients(server);
+  registerUndoLastMealChange(server);
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -458,6 +460,60 @@ function registerCreateRecipeFromIngredients(server: McpServer): void {
           `Rezept-Erstellung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+    },
+  );
+}
+
+/* ── undoLastMealChange ───────────────────────────────────────────── */
+
+function registerUndoLastMealChange(server: McpServer): void {
+  server.registerTool(
+    "undoLastMealChange",
+    {
+      title: "Letzte Plan-Änderung rückgängig machen",
+      description:
+        "Stellt das MealItem wieder her, das durch den letzten MCP-Schreibzugriff (`setMealForDay`, `replaceMealForDay`, `createRecipeFromIngredients` mit `planForDate`) verändert wurde. Es gibt nur eine Stufe Undo — nach Anwendung wird das Backup gelöscht.",
+      inputSchema: {},
+    },
+    async () => {
+      const snapshot = await readMealItemBackup();
+      if (!snapshot) {
+        return jsonResult({
+          ok: true,
+          undone: false,
+          message: "Es gibt keine rückgängig-machbare Änderung.",
+        });
+      }
+      const exists = await prisma.mealItem.findUnique({ where: { id: snapshot.item.id } });
+      if (!exists) {
+        await clearMealItemBackup();
+        return jsonResult({
+          ok: false,
+          undone: false,
+          message: "Das ursprüngliche MealItem existiert nicht mehr; Backup wurde verworfen.",
+        });
+      }
+      await prisma.mealItem.update({
+        where: { id: snapshot.item.id },
+        data: {
+          title: snapshot.item.title,
+          recipeId: snapshot.item.recipeId,
+          isRemix: snapshot.item.isRemix,
+          remixSource: snapshot.item.remixSource,
+          reasoning: snapshot.item.reasoning,
+          ingredients: snapshot.item.ingredients,
+          instructions: snapshot.item.instructions,
+        },
+      });
+      await clearMealItemBackup();
+      const fresh = await getMealItemById(snapshot.item.id);
+      return jsonResult({
+        ok: true,
+        undone: true,
+        action: snapshot.action,
+        capturedAt: snapshot.capturedAt,
+        meal: fresh ? compactMealItem(fresh) : undefined,
+      });
     },
   );
 }
