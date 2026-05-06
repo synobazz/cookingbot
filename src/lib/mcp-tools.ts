@@ -1,3 +1,18 @@
+/**
+ * MCP-Tool-Registrierung für Cookingbot.
+ *
+ * Jedes Tool ist eine kleine, zweckgebundene Funktion mit:
+ * - klarer deutscher Beschreibung (das LLM-Frontend ist deutsch)
+ * - Tool-Annotations (readOnly/destructive/idempotent), damit der Client
+ *   weiß, ob er Bestätigung einholen sollte
+ * - structured-result-Helfern (`ok`/`fail`) mit stabilen Error-Codes
+ * - Schreib-Tools laufen in einer Prisma-Transaktion gemeinsam mit dem
+ *   Undo-Backup, damit ein gescheiterter Schreibvorgang nie einen
+ *   "halbgaren" Undo-Slot hinterlässt.
+ *
+ * Tool-Beschreibungen sind absichtlich präzise und enthalten Hinweise,
+ * wie das LLM disambiguieren soll (z. B. mehrere Suchtreffer → Rückfrage).
+ */
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { addDays, startOfDay } from "date-fns";
 import { z } from "zod";
@@ -7,6 +22,7 @@ import {
   getMealItemById,
   getMealItemForDay,
   getMealItemsInRange,
+  getNextPlannedMealItem,
   searchRecipes as searchRecipesFn,
 } from "@/lib/meal-plan";
 import {
@@ -16,7 +32,13 @@ import {
   isoDate,
   parseGermanDate,
 } from "@/lib/mcp-helpers";
-import { captureMealItemBackup, clearMealItemBackup, readMealItemBackup } from "@/lib/mcp-undo";
+import { fail, ok, type McpToolResult } from "@/lib/mcp-result";
+import {
+  captureMealItemBackup,
+  clearMealItemBackup,
+  readMealItemBackup,
+  withMealItemBackup,
+} from "@/lib/mcp-undo";
 import { createRecipeFromIngredients as createRecipeFromIngredientsFn } from "@/lib/recipe-create";
 import { replanMealItem } from "@/lib/remix";
 import {
@@ -28,11 +50,6 @@ import {
 
 /**
  * Registriert alle Cookingbot-Tools auf einem frisch erstellten MCP-Server.
- *
- * Die Tools sind so geschnitten, dass sie als Bausteine für einen LLM-Agenten
- * funktionieren: kurze Beschreibung, klares Eingabeschema, deterministische
- * Antworten. Tool-Beschreibungen sind auf Deutsch — Claude versteht beides,
- * aber der Endnutzer interagiert auf Deutsch und das hilft bei der Disambiguierung.
  */
 export function registerCookingbotTools(server: McpServer): void {
   registerPing(server);
@@ -47,21 +64,6 @@ export function registerCookingbotTools(server: McpServer): void {
   registerUndoLastMealChange(server);
 }
 
-/* ── Helpers ──────────────────────────────────────────────────────── */
-
-function jsonResult(payload: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(payload) }],
-  };
-}
-
-function errorResult(message: string) {
-  return {
-    isError: true,
-    content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
-  };
-}
-
 /* ── Ping ─────────────────────────────────────────────────────────── */
 
 function registerPing(server: McpServer): void {
@@ -70,7 +72,7 @@ function registerPing(server: McpServer): void {
     {
       title: "Verbindungstest",
       description:
-        "Antwortet mit 'pong' und der aktuellen Server-Zeit. Nutze dieses Tool zur Diagnose, ob der Cookingbot-MCP-Server erreichbar ist.",
+        "Antwortet mit 'pong' und der aktuellen Server-Zeit. Nutze dieses Tool zur Diagnose, ob der Cookingbot-MCP-Server erreichbar ist und die Authentifizierung funktioniert.",
       inputSchema: {
         echo: z
           .string()
@@ -78,8 +80,18 @@ function registerPing(server: McpServer): void {
           .optional()
           .describe("Optionaler Text, der zurückgespiegelt werden soll."),
       },
+      annotations: {
+        title: "Verbindungstest",
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
-    async ({ echo }) => jsonResult({ ok: true, pong: echo || "pong", serverTime: new Date().toISOString() }),
+    async ({ echo }): Promise<McpToolResult> =>
+      ok({
+        pong: echo || "pong",
+        serverTime: new Date().toISOString(),
+      }),
   );
 }
 
@@ -91,28 +103,44 @@ function registerGetMealForDay(server: McpServer): void {
     {
       title: "Gericht für einen Tag abfragen",
       description:
-        "Gibt das geplante Abendessen für einen konkreten Tag zurück, inklusive Rezeptname, Zutaten, Anleitung und Begründung. Akzeptiert deutsche Datumsangaben wie 'heute', 'morgen', 'Donnerstag' oder ISO-Datumsformat (YYYY-MM-DD). Wenn an dem Tag nichts geplant ist, wird ein Hinweis zurückgegeben.",
+        "Gibt das geplante Abendessen für einen konkreten Tag zurück, inklusive Rezeptname, Zutaten, Anleitung und Begründung. Akzeptiert deutsche Datumsangaben wie 'heute', 'morgen', 'Donnerstag', 'in 3 Tagen' oder ISO-Datumsformat (YYYY-MM-DD). Hinweis zur Wochentag-Logik: 'Donnerstag' am Donnerstag bedeutet 'nächster Donnerstag' (in einer Woche). Für heute explizit 'heute' verwenden, oder 'diesen Donnerstag'/'am Donnerstag' für den aktuellen Wochentag. Wenn an dem Tag nichts geplant ist, liefert die Antwort einen Hinweis auf den nächsten geplanten Tag.",
       inputSchema: {
         date: z
           .string()
           .min(1)
-          .describe("Datum in 'heute', 'morgen', Wochentag oder YYYY-MM-DD."),
+          .describe("Datum: 'heute', 'morgen', Wochentag, 'in N Tagen' oder YYYY-MM-DD."),
+      },
+      annotations: {
+        title: "Gericht für einen Tag abfragen",
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
       },
     },
-    async ({ date }) => {
+    async ({ date }): Promise<McpToolResult> => {
       const target = parseGermanDate(date);
-      if (!target) return errorResult(`Datum konnte nicht interpretiert werden: '${date}'`);
+      if (!target) {
+        return fail("INVALID_DATE", `Datum konnte nicht interpretiert werden: '${date}'`, {
+          input: date,
+        });
+      }
       const item = await getMealItemForDay(target);
       if (!item) {
-        return jsonResult({
-          ok: true,
+        // Hilfreiche Folge-Information: nächster Tag mit Plan.
+        const next = await getNextPlannedMealItem(addDays(target, 1));
+        return ok({
           date: isoDate(target),
           planned: false,
           message: `Für ${isoDate(target)} ist aktuell kein Gericht geplant.`,
+          ...(next
+            ? {
+                nextPlannedDate: isoDate(next.date),
+                nextPlannedTitle: next.title,
+              }
+            : {}),
         });
       }
-      return jsonResult({
-        ok: true,
+      return ok({
         date: isoDate(target),
         planned: true,
         meal: compactMealItem(item),
@@ -132,26 +160,41 @@ function registerGetMealPlan(server: McpServer): void {
       description:
         "Liefert die geplanten Abendessen in einem Datumsbereich. Standardmäßig 'die nächsten 7 Tage ab heute'. Beide Datumsgrenzen sind inklusiv und können wie bei getMealForDay angegeben werden.",
       inputSchema: {
-        from: z
-          .string()
-          .optional()
-          .describe("Startdatum (inklusiv). Default: heute."),
+        from: z.string().optional().describe("Startdatum (inklusiv). Default: heute."),
         to: z
           .string()
           .optional()
           .describe("Enddatum (inklusiv). Default: 6 Tage nach 'from'."),
       },
+      annotations: {
+        title: "Wochenplan abfragen",
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
-    async ({ from, to }) => {
+    async ({ from, to }): Promise<McpToolResult> => {
       const today = startOfDay(new Date());
       const fromDate = from ? parseGermanDate(from) : today;
-      if (!fromDate) return errorResult(`Startdatum konnte nicht interpretiert werden: '${from}'`);
+      if (!fromDate) {
+        return fail("INVALID_DATE", `Startdatum konnte nicht interpretiert werden: '${from}'`, {
+          input: from,
+        });
+      }
       const toDate = to ? parseGermanDate(to) : addDays(fromDate, 6);
-      if (!toDate) return errorResult(`Enddatum konnte nicht interpretiert werden: '${to}'`);
-      if (toDate < fromDate) return errorResult("Enddatum darf nicht vor Startdatum liegen.");
+      if (!toDate) {
+        return fail("INVALID_DATE", `Enddatum konnte nicht interpretiert werden: '${to}'`, {
+          input: to,
+        });
+      }
+      if (toDate < fromDate) {
+        return fail("DATE_RANGE_REVERSED", "Enddatum darf nicht vor Startdatum liegen.", {
+          from: isoDate(fromDate),
+          to: isoDate(toDate),
+        });
+      }
       const items = await getMealItemsInRange(fromDate, toDate);
-      return jsonResult({
-        ok: true,
+      return ok({
         from: isoDate(fromDate),
         to: isoDate(toDate),
         count: items.length,
@@ -169,7 +212,7 @@ function registerSearchRecipes(server: McpServer): void {
     {
       title: "Rezepte durchsuchen",
       description:
-        "Sucht im lokalen Rezeptcache nach passenden Rezepten. Sucht in Name, Beschreibung und Zutaten. Liefert kompakte Treffer (id, Name, Bewertung, Zeiten); Details inkl. Zutaten/Anleitung gibt es über das `detailed`-Flag oder ein nachgelagertes Tool.",
+        "Sucht im lokalen Rezeptcache nach passenden Rezepten. Sucht in Name, Beschreibung und Zutaten. Liefert kompakte Treffer (id, Name, Bewertung, Zeiten). Mit `detailed: true` werden auch Zutaten/Anleitung mitgeliefert. Mit `includeExcluded: true` werden auch Rezepte gezeigt, die der User von der automatischen Wochenplanung ausgeschlossen hat (Default: ausschließen). Rezepte aus dem Papierkorb werden nie zurückgegeben.",
       inputSchema: {
         query: z
           .string()
@@ -186,15 +229,26 @@ function registerSearchRecipes(server: McpServer): void {
         detailed: z
           .boolean()
           .optional()
+          .describe("Wenn true, mit Zutaten und Anleitung. Default false."),
+        includeExcluded: z
+          .boolean()
+          .optional()
           .describe(
-            "Wenn true, werden auch Zutaten, Anleitung und Notizen geliefert. Default false, um Kontext zu sparen.",
+            "Wenn true, auch Rezepte mit `excludeFromPlanning=true` zeigen. Default false.",
           ),
       },
+      annotations: {
+        title: "Rezepte durchsuchen",
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
-    async ({ query, limit, detailed }) => {
-      const recipes = await searchRecipesFn(query, limit ?? 20);
-      return jsonResult({
-        ok: true,
+    async ({ query, limit, detailed, includeExcluded }): Promise<McpToolResult> => {
+      const recipes = await searchRecipesFn(query, limit ?? 20, {
+        excludeFromPlanning: includeExcluded ? false : true,
+      });
+      return ok({
         query,
         count: recipes.length,
         recipes: recipes.map((r) => (detailed ? detailedRecipe(r) : compactRecipe(r))),
@@ -222,25 +276,45 @@ function registerGetShoppingList(server: McpServer): void {
           .optional()
           .describe("ID eines Wochenplans. Liefert die zugehörige Einkaufsliste."),
       },
+      annotations: {
+        title: "Einkaufsliste abfragen",
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
-    async ({ shoppingListId, mealPlanId }) => {
+    async ({ shoppingListId, mealPlanId }): Promise<McpToolResult> => {
       let list = null;
       if (shoppingListId) {
         list = await getShoppingListById(shoppingListId);
-        if (!list) return errorResult(`Einkaufsliste mit id='${shoppingListId}' nicht gefunden.`);
+        if (!list) {
+          return fail(
+            "SHOPPING_LIST_NOT_FOUND",
+            `Einkaufsliste mit id='${shoppingListId}' nicht gefunden.`,
+            { shoppingListId },
+          );
+        }
       } else if (mealPlanId) {
         list = await getShoppingListByMealPlan(mealPlanId);
-        if (!list) return errorResult(`Keine Einkaufsliste für mealPlanId='${mealPlanId}' gefunden.`);
+        if (!list) {
+          return fail(
+            "SHOPPING_LIST_NOT_FOUND",
+            `Keine Einkaufsliste für mealPlanId='${mealPlanId}' gefunden.`,
+            { mealPlanId },
+          );
+        }
       } else {
         const recent = await listShoppingLists(1);
         list = recent[0] ?? null;
         if (!list) {
-          return jsonResult({ ok: true, message: "Es existieren noch keine Einkaufslisten.", list: null });
+          return ok({
+            message: "Es existieren noch keine Einkaufslisten.",
+            list: null,
+          });
         }
       }
       const groups = groupShoppingItems(list.items);
-      return jsonResult({
-        ok: true,
+      return ok({
         list: {
           id: list.id,
           title: list.title,
@@ -271,7 +345,7 @@ function registerFindRecipeByCraving(server: McpServer): void {
     {
       title: "Rezept zu einem Heißhunger finden",
       description:
-        "Sucht passende Rezepte zu einem freien Beschreibungstext (z. B. 'was Cremiges mit Pasta', 'leichtes Sommergericht', 'Hähnchen scharf'). Liefert die Top-Treffer sortiert nach Favoriten/Bewertung. Im Gegensatz zu searchRecipes inkludiert die Antwort kompakte Details (Zutaten, Zeiten), damit das LLM direkt eine Empfehlung formulieren kann.",
+        "Sucht passende Rezepte zu einem freien Beschreibungstext (z. B. 'was Cremiges mit Pasta', 'leichtes Sommergericht', 'Hähnchen scharf'). Liefert die Top-Treffer mit allen Details (Zutaten, Zeiten, Beschreibung), damit das LLM direkt eine Empfehlung formulieren kann. Rezepte mit `excludeFromPlanning` werden ausgeblendet, weil dieses Tool für die Auswahl gedacht ist. Wenn searchRecipes für reine Suche ohne automatischen Plan-Hintergrund reicht, dort suchen.",
       inputSchema: {
         craving: z
           .string()
@@ -286,11 +360,16 @@ function registerFindRecipeByCraving(server: McpServer): void {
           .optional()
           .describe("Maximale Trefferzahl, default 5."),
       },
+      annotations: {
+        title: "Rezept zu einem Heißhunger finden",
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
-    async ({ craving, limit }) => {
+    async ({ craving, limit }): Promise<McpToolResult> => {
       const recipes = await searchRecipesFn(craving, limit ?? 5);
-      return jsonResult({
-        ok: true,
+      return ok({
         craving,
         count: recipes.length,
         recipes: recipes.map(detailedRecipe),
@@ -307,7 +386,7 @@ function registerSetMealForDay(server: McpServer): void {
     {
       title: "Konkretes Rezept für einen Tag setzen",
       description:
-        "Weist dem MealItem an einem konkreten Tag ein bestehendes Rezept zu. Das Rezept kann direkt per `recipeId` oder per Suchbegriff (`recipeQuery`, dann wird der beste Treffer genommen) angegeben werden. Erfordert, dass für den Tag bereits ein Wochenplan existiert. Speichert vor der Änderung ein Undo-Backup; mit `undoLastMealChange` rückgängig machbar.",
+        "Weist dem MealItem an einem konkreten Tag ein bestehendes Rezept zu. Das Rezept kann direkt per `recipeId` oder per Suchbegriff (`recipeQuery`) angegeben werden. Bei `recipeQuery` werden die Top-Treffer geprüft: liefert die Suche **mehrere** plausible Rezepte (mehr als ein Treffer), antwortet das Tool mit einer Mehrdeutigkeits-Liste und nimmt **keine** Änderung vor — der LLM muss dann beim User nachfragen, welches gemeint ist. Speichert vor jeder echten Änderung ein Undo-Backup in einer Transaktion.",
       inputSchema: {
         date: z
           .string()
@@ -317,32 +396,98 @@ function registerSetMealForDay(server: McpServer): void {
         recipeQuery: z
           .string()
           .optional()
-          .describe("Alternativer Suchbegriff. Es wird der höchstbewertete Treffer genommen."),
+          .describe(
+            "Suchbegriff. Bei mehrdeutigen Treffern wird die Liste zurückgegeben statt automatisch zu wählen.",
+          ),
+      },
+      annotations: {
+        title: "Konkretes Rezept für einen Tag setzen",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
       },
     },
-    async ({ date, recipeId, recipeQuery }) => {
-      if (!recipeId && !recipeQuery) return errorResult("Entweder recipeId oder recipeQuery angeben.");
+    async ({ date, recipeId, recipeQuery }): Promise<McpToolResult> => {
+      if (!recipeId && !recipeQuery) {
+        return fail(
+          "INVALID_INPUT",
+          "Entweder recipeId oder recipeQuery angeben.",
+        );
+      }
       const target = parseGermanDate(date);
-      if (!target) return errorResult(`Datum konnte nicht interpretiert werden: '${date}'`);
+      if (!target) {
+        return fail("INVALID_DATE", `Datum konnte nicht interpretiert werden: '${date}'`, {
+          input: date,
+        });
+      }
 
       let resolvedRecipeId = recipeId;
       if (!resolvedRecipeId && recipeQuery) {
-        const hits = await searchRecipesFn(recipeQuery, 1);
-        if (hits.length === 0) return errorResult(`Keine Rezepte für '${recipeQuery}' gefunden.`);
+        // Bis zu 5 Treffer holen für Disambiguierung; wenn genau einer da ist, durchwinken.
+        const hits = await searchRecipesFn(recipeQuery, 5);
+        if (hits.length === 0) {
+          return fail("RECIPE_NOT_FOUND", `Keine Rezepte für '${recipeQuery}' gefunden.`, {
+            query: recipeQuery,
+          });
+        }
+        if (hits.length > 1) {
+          return fail(
+            "MULTIPLE_MATCHES",
+            `Mehrere Rezepte passen zu '${recipeQuery}'. Bitte mit recipeId aus der candidates-Liste erneut aufrufen.`,
+            {
+              query: recipeQuery,
+              candidates: hits.map(compactRecipe),
+            },
+          );
+        }
         resolvedRecipeId = hits[0].id;
+      }
+
+      // Das Ziel-Rezept holen, um es vor dem Schreiben gegen excludeFromPlanning
+      // zu prüfen — der User könnte eine `recipeId` direkt liefern, die geblockt ist.
+      const targetRecipe = await prisma.recipe.findUnique({
+        where: { id: resolvedRecipeId! },
+      });
+      if (!targetRecipe || targetRecipe.inTrash) {
+        return fail(
+          "RECIPE_NOT_FOUND",
+          `Rezept mit id='${resolvedRecipeId}' nicht gefunden oder im Papierkorb.`,
+          { recipeId: resolvedRecipeId },
+        );
+      }
+      if (targetRecipe.excludeFromPlanning) {
+        return fail(
+          "RECIPE_EXCLUDED",
+          `Das Rezept '${targetRecipe.name}' ist von der Wochenplanung ausgeschlossen. Bitte ein anderes wählen oder die Einstellung am Rezept ändern.`,
+          { recipeId: targetRecipe.id, recipeName: targetRecipe.name },
+        );
       }
 
       const existing = await getMealItemForDay(target);
       if (!existing) {
-        return errorResult(
+        return fail(
+          "PLAN_NOT_FOUND",
           `Für ${isoDate(target)} existiert kein Wochenplan-Eintrag. Bitte zuerst einen Plan generieren.`,
+          { date: isoDate(target) },
         );
       }
-      await captureMealItemBackup(existing, "setMealForDay");
-      const updated = await assignRecipeToMealItem(existing.id, resolvedRecipeId!);
-      const fresh = await getMealItemById(updated.id);
-      return jsonResult({
-        ok: true,
+
+      // Atomar: Backup + Mutation in einer Transaktion.
+      try {
+        await withMealItemBackup({
+          item: existing,
+          action: "setMealForDay",
+          mutate: (tx) => assignRecipeToMealItem(existing.id, resolvedRecipeId!, tx),
+        });
+      } catch (error) {
+        return fail(
+          "INTERNAL_ERROR",
+          `Schreibvorgang fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      const fresh = await getMealItemById(existing.id);
+      return ok({
         date: isoDate(target),
         action: "setMealForDay",
         meal: fresh ? compactMealItem(fresh) : undefined,
@@ -360,29 +505,54 @@ function registerReplaceMealForDay(server: McpServer): void {
     {
       title: "Gericht für einen Tag neu planen",
       description:
-        "Wirft das aktuell geplante Gericht für einen Tag weg und lässt den Cookingbot-Planner ein neues Rezept dafür wählen (gleiche Logik wie der 'Neu planen'-Button im UI). Speichert ein Undo-Backup; mit `undoLastMealChange` rückgängig machbar.",
+        "Wirft das aktuell geplante Gericht für einen Tag weg und lässt den Cookingbot-Planner ein neues Rezept dafür wählen (gleiche Logik wie der 'Neu planen'-Button im UI). Speichert ein Undo-Backup nur bei Erfolg; mit `undoLastMealChange` rückgängig machbar.",
       inputSchema: {
         date: z.string().min(1).describe("Tag, der neu geplant werden soll."),
       },
+      annotations: {
+        title: "Gericht für einen Tag neu planen",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
-    async ({ date }) => {
+    async ({ date }): Promise<McpToolResult> => {
       const target = parseGermanDate(date);
-      if (!target) return errorResult(`Datum konnte nicht interpretiert werden: '${date}'`);
+      if (!target) {
+        return fail("INVALID_DATE", `Datum konnte nicht interpretiert werden: '${date}'`, {
+          input: date,
+        });
+      }
       const existing = await getMealItemForDay(target);
-      if (!existing) return errorResult(`Für ${isoDate(target)} existiert kein Wochenplan-Eintrag.`);
+      if (!existing) {
+        return fail(
+          "PLAN_NOT_FOUND",
+          `Für ${isoDate(target)} existiert kein Wochenplan-Eintrag.`,
+          { date: isoDate(target) },
+        );
+      }
+
+      // Backup VOR der Mutation schreiben, weil replanMealItem das LLM aufruft
+      // und das nicht in einer DB-Transaktion stehen sollte (wäre eine lange Tx).
+      // Wenn replanMealItem wirft, verwerfen wir das Backup wieder, sonst würde
+      // ein "scheinbar undo-fähiger" Zustand zurückbleiben, der gar nicht
+      // angetastet wurde.
       await captureMealItemBackup(existing, "replaceMealForDay");
       try {
         const updated = await replanMealItem(existing.id);
         const fresh = await getMealItemById(updated.id);
-        return jsonResult({
-          ok: true,
+        return ok({
           date: isoDate(target),
           action: "replaceMealForDay",
           meal: fresh ? compactMealItem(fresh) : undefined,
           undoHint: "Rückgängig mit dem Tool 'undoLastMealChange'.",
         });
       } catch (error) {
-        return errorResult(
+        // Backup zurückrollen, damit der User keinen falschen Undo-Slot hat.
+        await clearMealItemBackup().catch(() => undefined);
+        return fail(
+          "REPLAN_FAILED",
           `Replanung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
@@ -398,7 +568,7 @@ function registerCreateRecipeFromIngredients(server: McpServer): void {
     {
       title: "Neues Rezept aus Zutaten erstellen",
       description:
-        "Lässt das LLM aus einer Liste verfügbarer Zutaten ein konkretes Abendessen-Rezept entwerfen. Das Rezept wird mit `origin='local-llm'` lokal gespeichert (kein Paprika-Sync). Optional kann das neue Rezept direkt einem Tag im Wochenplan zugewiesen werden (`planForDate`).",
+        "Lässt das LLM aus einer Liste verfügbarer Zutaten ein konkretes Abendessen-Rezept entwerfen. Das Rezept wird mit `origin='local-llm'` lokal gespeichert (kein Paprika-Sync, paprikaUid bleibt null). Optional kann das neue Rezept direkt einem Tag im Wochenplan zugewiesen werden (`planForDate`); dann läuft die Zuweisung in einer Transaktion mit dem Undo-Backup.",
       inputSchema: {
         ingredients: z
           .array(z.string().min(1))
@@ -414,52 +584,71 @@ function registerCreateRecipeFromIngredients(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            "Wenn gesetzt, wird das Rezept dem MealItem dieses Tages zugewiesen (Backup wird erstellt).",
+            "Wenn gesetzt, wird das Rezept dem MealItem dieses Tages zugewiesen (Backup in Tx).",
           ),
       },
+      annotations: {
+        title: "Neues Rezept aus Zutaten erstellen",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
-    async ({ ingredients, constraint, planForDate }) => {
+    async ({ ingredients, constraint, planForDate }): Promise<McpToolResult> => {
+      let recipe;
       try {
-        const recipe = await createRecipeFromIngredientsFn({ ingredients, constraint });
-        let plannedFor: string | undefined;
-        let mealUpdate: ReturnType<typeof compactMealItem> | undefined;
-
-        if (planForDate) {
-          const target = parseGermanDate(planForDate);
-          if (!target) {
-            return jsonResult({
-              ok: true,
-              recipe: detailedRecipe(recipe),
-              warning: `Rezept wurde gespeichert, aber Datum '${planForDate}' konnte nicht interpretiert werden.`,
-            });
-          }
-          const existing = await getMealItemForDay(target);
-          if (!existing) {
-            return jsonResult({
-              ok: true,
-              recipe: detailedRecipe(recipe),
-              warning: `Rezept wurde gespeichert, aber für ${isoDate(target)} existiert kein Wochenplan-Eintrag.`,
-            });
-          }
-          await captureMealItemBackup(existing, "createRecipeFromIngredients");
-          const updated = await assignRecipeToMealItem(existing.id, recipe.id);
-          plannedFor = isoDate(target);
-          const fresh = await getMealItemById(updated.id);
-          if (fresh) mealUpdate = compactMealItem(fresh);
+        recipe = await createRecipeFromIngredientsFn({ ingredients, constraint });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        // Spezifische Fehlertypen aus dem Service-Layer differenzieren.
+        if (message.toLowerCase().includes("kindertauglich")) {
+          return fail("RECIPE_BLOCKED_UNSAFE", message);
         }
+        if (message.toLowerCase().includes("timeout")) {
+          return fail("LLM_TIMEOUT", message);
+        }
+        return fail("RECIPE_CREATE_FAILED", `Rezept-Erstellung fehlgeschlagen: ${message}`);
+      }
 
-        return jsonResult({
-          ok: true,
+      if (!planForDate) {
+        return ok({ recipe: detailedRecipe(recipe) });
+      }
+
+      const target = parseGermanDate(planForDate);
+      if (!target) {
+        return ok({
           recipe: detailedRecipe(recipe),
-          plannedFor,
-          meal: mealUpdate,
-          undoHint: plannedFor ? "Zuweisung rückgängig mit 'undoLastMealChange'." : undefined,
+          warning: `Rezept wurde gespeichert, aber Datum '${planForDate}' konnte nicht interpretiert werden.`,
+        });
+      }
+      const existing = await getMealItemForDay(target);
+      if (!existing) {
+        return ok({
+          recipe: detailedRecipe(recipe),
+          warning: `Rezept wurde gespeichert, aber für ${isoDate(target)} existiert kein Wochenplan-Eintrag.`,
+        });
+      }
+
+      try {
+        await withMealItemBackup({
+          item: existing,
+          action: "createRecipeFromIngredients",
+          mutate: (tx) => assignRecipeToMealItem(existing.id, recipe.id, tx),
         });
       } catch (error) {
-        return errorResult(
-          `Rezept-Erstellung fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        return ok({
+          recipe: detailedRecipe(recipe),
+          warning: `Rezept gespeichert, aber Zuweisung schlug fehl: ${error instanceof Error ? error.message : String(error)}`,
+        });
       }
+      const fresh = await getMealItemById(existing.id);
+      return ok({
+        recipe: detailedRecipe(recipe),
+        plannedFor: isoDate(target),
+        meal: fresh ? compactMealItem(fresh) : undefined,
+        undoHint: "Zuweisung rückgängig mit 'undoLastMealChange'.",
+      });
     },
   );
 }
@@ -472,14 +661,20 @@ function registerUndoLastMealChange(server: McpServer): void {
     {
       title: "Letzte Plan-Änderung rückgängig machen",
       description:
-        "Stellt das MealItem wieder her, das durch den letzten MCP-Schreibzugriff (`setMealForDay`, `replaceMealForDay`, `createRecipeFromIngredients` mit `planForDate`) verändert wurde. Es gibt nur eine Stufe Undo — nach Anwendung wird das Backup gelöscht.",
+        "Stellt das MealItem wieder her, das durch den letzten MCP-Schreibzugriff (`setMealForDay`, `replaceMealForDay`, `createRecipeFromIngredients` mit `planForDate`) verändert wurde. Es gibt nur eine Stufe Undo — nach Anwendung wird das Backup gelöscht. Hat der User seitdem weitere Änderungen gemacht, ist nur die letzte rücknehmbar.",
       inputSchema: {},
+      annotations: {
+        title: "Letzte Plan-Änderung rückgängig machen",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
-    async () => {
+    async (): Promise<McpToolResult> => {
       const snapshot = await readMealItemBackup();
       if (!snapshot) {
-        return jsonResult({
-          ok: true,
+        return ok({
           undone: false,
           message: "Es gibt keine rückgängig-machbare Änderung.",
         });
@@ -487,28 +682,28 @@ function registerUndoLastMealChange(server: McpServer): void {
       const exists = await prisma.mealItem.findUnique({ where: { id: snapshot.item.id } });
       if (!exists) {
         await clearMealItemBackup();
-        return jsonResult({
-          ok: false,
-          undone: false,
-          message: "Das ursprüngliche MealItem existiert nicht mehr; Backup wurde verworfen.",
-        });
+        return fail(
+          "MEAL_NOT_FOUND",
+          "Das ursprüngliche MealItem existiert nicht mehr; Backup wurde verworfen.",
+        );
       }
-      await prisma.mealItem.update({
-        where: { id: snapshot.item.id },
-        data: {
-          title: snapshot.item.title,
-          recipeId: snapshot.item.recipeId,
-          isRemix: snapshot.item.isRemix,
-          remixSource: snapshot.item.remixSource,
-          reasoning: snapshot.item.reasoning,
-          ingredients: snapshot.item.ingredients,
-          instructions: snapshot.item.instructions,
-        },
+      await prisma.$transaction(async (tx) => {
+        await tx.mealItem.update({
+          where: { id: snapshot.item.id },
+          data: {
+            title: snapshot.item.title,
+            recipeId: snapshot.item.recipeId,
+            isRemix: snapshot.item.isRemix,
+            remixSource: snapshot.item.remixSource,
+            reasoning: snapshot.item.reasoning,
+            ingredients: snapshot.item.ingredients,
+            instructions: snapshot.item.instructions,
+          },
+        });
+        await tx.appSetting.deleteMany({ where: { key: "lastMealItemChange" } });
       });
-      await clearMealItemBackup();
       const fresh = await getMealItemById(snapshot.item.id);
-      return jsonResult({
-        ok: true,
+      return ok({
         undone: true,
         action: snapshot.action,
         capturedAt: snapshot.capturedAt,

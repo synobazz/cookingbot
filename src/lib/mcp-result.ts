@@ -16,7 +16,7 @@ export type McpToolResult = {
    * wir füllen das, sodass Clients mit Schema-Awareness das JSON ohne erneutes
    * Parsen verarbeiten können.
    */
-  structuredContent?: unknown;
+  structuredContent?: { [key: string]: unknown };
 };
 
 /** Erfolgs-Antwort mit beliebigem JSON-Payload. */

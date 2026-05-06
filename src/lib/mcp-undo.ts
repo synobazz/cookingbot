@@ -10,8 +10,15 @@
  * Bewusst nur eine Ebene Undo — kein Stack. Mehr braucht's für den
  * "ich hab Mist gebaut, mach das letzte rückgängig"-Use-Case nicht
  * und der User behält die Übersicht.
+ *
+ * Race-Condition-Schutz: `withMealItemBackup` wickelt Backup + Mutation
+ * in einer einzigen `prisma.$transaction` ab. Damit ist garantiert, dass
+ * paralleler Tool-Calls entweder beide ihren Snapshot atomar wegschreiben
+ * oder einen Konflikt sehen — niemals "Backup von A, Update von B" ohne
+ * passendes Backup. SQLite serialisiert Writes ohnehin, aber wir verlassen
+ * uns nicht auf das Engine-Detail.
  */
-import type { MealItem } from "@prisma/client";
+import type { MealItem, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 const KEY = "lastMealItemChange";
@@ -34,9 +41,10 @@ export type MealItemSnapshot = {
   };
 };
 
-/** Speichert einen Snapshot des MealItem als zuletzt rückgängig-machbare Änderung. */
-export async function captureMealItemBackup(item: MealItem, action: string): Promise<void> {
-  const snapshot: MealItemSnapshot = {
+type TxClient = Prisma.TransactionClient;
+
+function snapshotFromItem(item: MealItem, action: string): MealItemSnapshot {
+  return {
     capturedAt: new Date().toISOString(),
     action,
     item: {
@@ -53,6 +61,46 @@ export async function captureMealItemBackup(item: MealItem, action: string): Pro
       instructions: item.instructions,
     },
   };
+}
+
+/**
+ * Atomare "Backup + Mutation"-Klammer. Ruft den `mutate`-Callback innerhalb
+ * einer Prisma-Transaktion auf, nachdem das Backup geschrieben wurde. Wenn
+ * `mutate` wirft, wird die ganze Transaktion zurückgerollt — auch das Backup,
+ * sodass ein gescheiterter Aufruf keine "scheinbar rückgängig-machbaren"
+ * Zustände hinterlässt.
+ *
+ * Der Aufrufer bekommt den Tx-Client als Parameter und MUSS ihn für seine
+ * eigenen DB-Operationen nutzen, damit alles in derselben Transaktion bleibt.
+ */
+export async function withMealItemBackup<T>(args: {
+  item: MealItem;
+  action: string;
+  mutate: (tx: TxClient) => Promise<T>;
+}): Promise<T> {
+  const snapshot = snapshotFromItem(args.item, args.action);
+  return prisma.$transaction(async (tx) => {
+    await tx.appSetting.upsert({
+      where: { key: KEY },
+      update: { value: JSON.stringify(snapshot) },
+      create: { key: KEY, value: JSON.stringify(snapshot) },
+    });
+    return args.mutate(tx);
+  });
+}
+
+/**
+ * Schreibt nur das Backup, ohne Mutation. Wird aktuell von Tools genutzt, die
+ * ihre Mutation außerhalb einer Transaktion ausführen müssen (z. B. der
+ * Replan-Pfad ruft das LLM auf — das soll nicht innerhalb einer DB-Tx passieren,
+ * sonst hält die Tx unnötig lange).
+ *
+ * Aufrufer sind dafür verantwortlich, das Backup nach einem fehlgeschlagenen
+ * Mutationsversuch wieder zu verwerfen (`clearMealItemBackup`), damit der
+ * Undo-Slot nicht "vergiftet" zurückbleibt.
+ */
+export async function captureMealItemBackup(item: MealItem, action: string): Promise<void> {
+  const snapshot = snapshotFromItem(item, action);
   await prisma.appSetting.upsert({
     where: { key: KEY },
     update: { value: JSON.stringify(snapshot) },
