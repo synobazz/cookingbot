@@ -23,6 +23,10 @@ services:
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-consumers}
       TRUST_PROXY: ${TRUST_PROXY:-}
       PRISMA_DB_PUSH_ON_START: ${PRISMA_DB_PUSH_ON_START:-true}
+      # MCP-Endpoint: ohne Token bleibt /mcp deaktiviert (HTTP 503).
+      # Token mit `openssl rand -base64 48` erzeugen oder einen anderen
+      # kryptographisch zufälligen 32+ Zeichen langen String setzen.
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:-}
     volumes:
       - cookingbot-data:/data
 

@@ -7,12 +7,24 @@ Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unreleased]
 
 ### Added
-- **MCP-Server unter `/mcp`** — Cookingbot exponiert acht Tools (`getMealForDay`, `getMealPlan`, `searchRecipes`, `getShoppingList`, `findRecipeByCraving`, `setMealForDay`, `replaceMealForDay`, `createRecipeFromIngredients`) plus `undoLastMealChange` für externe LLM-Clients wie Claude Desktop. Authentifizierung per statischem Bearer-Token (`MCP_BEARER_TOKEN`); ohne gesetztes Token antwortet der Endpoint mit HTTP 503. Schreibtools speichern vor jeder Änderung ein einstufiges Undo-Backup im `AppSetting`-Store.
-- **Recipe-Origin** (`origin`-Feld auf `Recipe`) zur Unterscheidung von Paprika-Sync, lokalen LLM-Generaten und manuell angelegten Rezepten. `paprikaUid` ist jetzt nullable, wodurch der Paprika-Sync lokale Rezepte nicht mehr überschreibt.
-- **Service-Layer** (`src/lib/planner.ts`, `src/lib/remix.ts`, `src/lib/meal-plan.ts`, `src/lib/shopping.ts`) extrahiert die Domänen-Logik aus den API-Routen, sodass MCP-Tools, Routes und potentielle Tests dieselben Funktionen verwenden.
+- **MCP-Server unter `/mcp`** — Cookingbot exponiert zehn Tools (`getMealForDay`, `getMealPlan`, `searchRecipes`, `getShoppingList`, `findRecipeByCraving`, `setMealForDay`, `replaceMealForDay`, `createRecipeFromIngredients`, `undoLastMealChange`, `showRecentMcpActivity`) plus `ping` für externe LLM-Clients wie Claude Desktop. Authentifizierung per statischem Bearer-Token (`MCP_BEARER_TOKEN`); ohne gesetztes Token antwortet der Endpoint mit HTTP 503. Alle Tools liefern strukturierte Ergebnisse mit stabilen Error-Codes (`MULTIPLE_MATCHES`, `LLM_TIMEOUT`, `RECIPE_EXCLUDED`, …) und führen MCP-Annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`), sodass Claude bei schreibenden Tools standardmäßig vor jeder Aktion nachfragt.
+- **Audit-Ringbuffer für MCP-Tool-Aufrufe** — die letzten 50 Calls werden in `AppSetting["mcpAuditLog"]` gespeichert und über das neue Tool `showRecentMcpActivity` abrufbar (Tool-Name, Dauer, ok-Flag, Error-Code, gekürzte Args).
+- **Recipe-Origin** (`origin`-Feld auf `Recipe`) zur Unterscheidung von Paprika-Sync, lokalen LLM-Generaten (`origin: local-llm`) und manuell angelegten Rezepten. `paprikaUid` ist jetzt nullable; der Paprika-Sync filtert null-paprikaUid-Rezepte aus dem Update-Pfad und überschreibt damit lokale Rezepte nicht mehr.
+- **Service-Layer** (`src/lib/planner.ts`, `src/lib/remix.ts`, `src/lib/meal-plan.ts`, `src/lib/shopping.ts`, `src/lib/recipe-create.ts`) extrahiert die Domänen-Logik aus den API-Routen, sodass MCP-Tools, Routes und Tests dieselben Funktionen verwenden.
+- **INSTALLATION.md** — schritt-für-schritt-Anleitung für Synology-NAS-Setup inklusive Reverse-Proxy-Konfiguration und Claude-Desktop-Anbindung.
+
+### Changed
+- `getOpenAIClient()` cached die OpenAI-Instanz pro `(apiKey, baseURL)`-Kombination, damit über mehrere Tool-Aufrufe der gleiche HTTP-Pool wiederverwendet wird.
+- Schreibtools mit kurzer DB-Zeit (`setMealForDay`, `createRecipeFromIngredients` mit `planForDate`) laufen jetzt zusammen mit ihrem Undo-Backup in einer Prisma-Transaktion. Schreibtools mit LLM-Latenz (`replaceMealForDay`) verwerfen das Backup bei einem Fehler explizit.
+- `parseGermanDate` versteht zusätzliche Formen: `'in N Tagen'`, `'vor N Tagen'`, `'nächste Woche'`, Kurzformen (Mo/Di/Mon/Tue), `'diesen X'`/`'am X'` für aktuelle Woche, `'nächsten X'`/`'kommenden X'` für nächste Woche. Bare Wochentag am gleichen Wochentag rollt auf die kommende Woche statt auf heute.
+- `searchRecipes` filtert standardmäßig Rezepte mit `excludeFromPlanning=true` heraus; ein optionales `includeExcluded`-Flag erlaubt das Abrufen aller Rezepte.
+- `setMealForDay` mit mehrdeutigem `recipeQuery` führt keine stille Auswahl mehr durch, sondern liefert `MULTIPLE_MATCHES` mit Kandidatenliste zur Disambiguierung.
+- `createRecipeFromIngredients` bricht hängende LLM-Aufrufe nach 45 s per `AbortController` ab, normalisiert/dedupliziert die Zutatenliste und schreibt `paprikaUid: null` explizit.
+- `/mcp` exportiert explizite 405-Handler für `PUT`/`PATCH`/`HEAD` mit `Allow: GET, POST, DELETE`-Header zur klareren Diagnose von Fehlkonfigurationen.
 
 ### Security
 - `DATABASE_URL` wird auf der Einstellungsseite maskiert (Schema, User, Host, DB-Name sichtbar – Passwort entfernt), sodass Screenshots oder Screen-Sharing keine Zugangsdaten preisgeben.
+- MCP-Bearer-Token-Vergleich nutzt `crypto.timingSafeEqual` (konstantzeit) gegen Timing-Side-Channels.
 
 ### Fixed
 - **Einkaufslisten-Restore** läuft jetzt in einer Prisma-Transaktion und entfernt das `lastDeletedShoppingList`-Backup nach erfolgreicher Wiederherstellung. Damit lassen sich gelöschte Listen nicht versehentlich mehrfach wiederherstellen, und ein Folgefehler hinterlässt keinen halb erstellten Datensatz.

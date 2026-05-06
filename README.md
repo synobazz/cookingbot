@@ -476,17 +476,22 @@ Unter **Settings → Connectors → Add custom connector** einen Streamable-HTTP
 | Tool | Zweck |
 |---|---|
 | `ping` | Verbindungs- und Auth-Test. |
-| `getMealForDay` | Was steht für „heute“, „morgen“ oder ein konkretes Datum auf dem Plan? |
+| `getMealForDay` | Was steht für „heute“, „morgen“ oder ein konkretes Datum auf dem Plan? Liefert bei leerem Tag den nächsten geplanten Tag mit. |
 | `getMealPlan` | Wochenplan in einem Datumsbereich. |
-| `searchRecipes` | Rezeptsuche im lokalen Cache (kompakt oder mit Details). |
+| `searchRecipes` | Rezeptsuche im lokalen Cache (kompakt oder mit Details). Filtert per Default ausgeschlossene Rezepte raus; `includeExcluded` für die volle Liste. |
 | `findRecipeByCraving` | Freitext-Suche mit Top-Treffern inkl. Zutaten/Zeiten. |
 | `getShoppingList` | Aktuelle oder konkrete Einkaufsliste, gruppiert nach Kategorie. |
-| `setMealForDay` | Bestehendes Rezept einem Tag zuweisen. |
+| `setMealForDay` | Bestehendes Rezept einem Tag zuweisen. Mehrdeutige Suchergebnisse liefern `MULTIPLE_MATCHES` zur Disambiguierung. |
 | `replaceMealForDay` | Tag neu planen lassen (gleicher Pfad wie der „Neu planen“-Button). |
-| `createRecipeFromIngredients` | Aus einer Zutatenliste ein Rezept erzeugen, optional gleich einplanen. |
+| `createRecipeFromIngredients` | Aus einer Zutatenliste ein Rezept erzeugen, optional gleich einplanen. LLM-Aufruf hat 45 s Timeout. |
 | `undoLastMealChange` | Letzten Schreibzugriff der Schreibtools rückgängig machen (eine Stufe). |
+| `showRecentMcpActivity` | Letzte 1–50 Tool-Aufrufe aus dem Audit-Ringbuffer; nützlich zum Debugging. |
 
-Alle Schreibtools speichern vor der Änderung einen Snapshot des betroffenen MealItems im `AppSetting`-Store. `undoLastMealChange` stellt diesen Snapshot wieder her und löscht das Backup.
+Alle Schreibtools speichern vor der Änderung einen Snapshot des betroffenen MealItems im `AppSetting`-Store. `undoLastMealChange` stellt diesen Snapshot wieder her und löscht das Backup. Schreibtools tragen MCP-Annotations (`destructiveHint: true`), Claude fragt bei diesen Tools standardmäßig vor jedem Aufruf nach Bestätigung.
+
+Tool-Antworten sind strukturiert: bei Fehlern liefert das Tool eine `errorCode`-Konstante (`INVALID_DATE`, `MULTIPLE_MATCHES`, `RECIPE_NOT_FOUND`, `RECIPE_EXCLUDED`, `LLM_TIMEOUT`, `MEAL_NOT_FOUND`, …), eine deutsche Fehlermeldung und ggf. zusätzliche Details (z. B. die Liste der Kandidaten bei mehrdeutiger Rezept-Suche).
+
+Eine schritt-für-schritt-Anleitung für die Synology-NAS-Einrichtung inklusive Reverse-Proxy und Claude-Desktop-Konfiguration steht in [`INSTALLATION.md`](./INSTALLATION.md).
 
 ## Typischer Workflow
 
