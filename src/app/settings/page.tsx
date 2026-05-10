@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { appBaseUrl, openAIBaseUrl, plannerModel, remixModel } from "@/lib/env";
 import { DIET_TAGS, getDietaryConstraints } from "@/lib/dietary";
-import { RefreshIcon } from "../_components/icons";
+import { HeartPulseIcon, RefreshIcon } from "../_components/icons";
 import { PendingForm, PendingButton } from "../_components/pending-form";
 
 function statusChip(ok: boolean, label: string) {
@@ -67,6 +68,9 @@ export default async function SettingsPage({
           <span className="sub">Status, Integrationen und schnelle Verwaltungsaktionen.</span>
         </div>
         <div className="actions">
+          <Link className="btn ghost" href="/settings/health">
+            <HeartPulseIcon /> Diagnose
+          </Link>
           <PendingForm action="/api/sync/paprika" method="post" pendingMessage="Paprika wird synchronisiert…">
             <PendingButton className="btn ghost" type="submit">
               <RefreshIcon /> Paprika syncen
