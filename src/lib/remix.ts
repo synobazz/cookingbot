@@ -7,6 +7,7 @@ import {
   isUnsafeDinnerRecipe,
   recipeForPrompt,
 } from "@/lib/planning";
+import { formatConstraintsForPrompt, getDietaryConstraints } from "@/lib/dietary";
 
 const RemixSchema = z.object({
   title: z.string().min(1),
@@ -55,6 +56,7 @@ type RemixSource =
  */
 export async function generateRemix(source: RemixSource): Promise<RemixOutput> {
   const client = getOpenAIClient();
+  const dietaryBlock = formatConstraintsForPrompt(await getDietaryConstraints());
   const sourcePayload =
     source.kind === "recipe"
       ? recipeForPrompt(source.recipe)
@@ -76,7 +78,10 @@ export async function generateRemix(source: RemixSource): Promise<RemixOutput> {
           content: JSON.stringify({
             task: "Mach aus diesem Rezept einen coolen, aber realistisch kochbaren Remix fürs Abendessen. Behalte die Grundidee des Originalrezepts erkennbar bei und ändere Würzung, Beilage, Form oder Sauce sinnvoll.",
             household: "2 Erwachsene und ein 5-jähriges Kind",
-            rules: RULES,
+            dietaryConstraints: dietaryBlock || "(keine speziellen Diät- oder Allergie-Constraints konfiguriert)",
+            rules: dietaryBlock
+              ? [...RULES, "Halte dich strikt an die dietaryConstraints."]
+              : RULES,
             outputSchema: OUTPUT_SCHEMA_DOC,
             source: sourcePayload,
           }),

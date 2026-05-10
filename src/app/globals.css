@@ -479,10 +479,19 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .settings-stats div { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: var(--card-2); }
 .settings-stats b { display: block; font-family: var(--font-fraunces), serif; font-size: 1.6rem; line-height: 1; }
 .settings-stats span { display: block; margin-top: 4px; color: var(--muted); font-size: 0.82rem; }
-.integration-list { display: grid; gap: 10px; }
-.integration-list > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.integration-list { display: grid; gap: 10px; }.integration-list > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
 .integration-list > div:last-child { border-bottom: 0; }
 .integration-list p { margin: 3px 0 0; font-size: 0.88rem; }
+
+/* =========== Diät-Tags ===========
+   Tag-artige Checkboxen für die persistenten Diät-Constraints.
+   Verhalten ähnlich wie .filter-pill, aber mit nativem Checkbox-State,
+   um Screenreader korrekt zu bedienen. */
+.diet-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.diet-tag { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--card); color: var(--ink-2); font-size: 0.85rem; font-weight: 500; cursor: pointer; user-select: none; }
+.diet-tag input { position: absolute; opacity: 0; pointer-events: none; }
+.diet-tag:has(input:checked) { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.diet-tag:focus-within { outline: 2px solid var(--forest); outline-offset: 2px; }
 
 /* =========== Empty states =========== */
 .empty { text-align: center; padding: 50px 20px; border: 1px dashed var(--line-strong); border-radius: 18px; background: var(--card-2); }

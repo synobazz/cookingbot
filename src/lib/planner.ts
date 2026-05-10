@@ -9,6 +9,7 @@ import {
   recipeForPrompt,
   seasonForDate,
 } from "@/lib/planning";
+import { formatConstraintsForPrompt, getDietaryConstraints } from "@/lib/dietary";
 
 export const VALID_DAYS = [
   "monday",
@@ -129,6 +130,7 @@ export async function generateMealPlan(input: PlannerInput): Promise<GeneratedPl
 
   const validRecipeIds = new Set(recipes.map((recipe) => recipe.id));
   const client = getOpenAIClient();
+  const dietaryBlock = formatConstraintsForPrompt(await getDietaryConstraints());
 
   let raw: string;
   try {
@@ -146,12 +148,15 @@ export async function generateMealPlan(input: PlannerInput): Promise<GeneratedPl
             season: seasonForDate(start),
             preferences:
               "Wir essen grundsätzlich alles. Aus Rezepten ableiten, saisonal denken. Im Sommer leichter, im Herbst/Winter gerne Eintöpfe etc.",
+            dietaryConstraints: dietaryBlock || "(keine speziellen Diät- oder Allergie-Constraints konfiguriert)",
             notes,
             dates: planningDates.map((d) => ({
               date: d.date.toISOString().slice(0, 10),
               dayName: d.dayName,
             })),
-            rules: RULES,
+            rules: dietaryBlock
+              ? [...RULES, "Halte dich strikt an die dietaryConstraints. Verwende keine Rezepte, die diese verletzen."]
+              : RULES,
             outputSchema: OUTPUT_SCHEMA_DOC,
             recipes: recipes.map(recipeForPrompt),
           }),

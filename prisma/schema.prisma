@@ -39,6 +39,7 @@ model Recipe {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   mealItems      MealItem[]
+  history        MealHistory[]
 
   @@index([inTrash, excludeFromPlanning])
   @@index([onFavorites, rating])
@@ -127,4 +128,39 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Eintrag in der virtuellen Vorratskammer.
+/// Wenn eine Zutat hier liegt, taucht sie nicht in der generierten
+/// Einkaufsliste auf (oder wird in den "Hast du noch?"-Block verschoben).
+/// `expiresOn` ist optional und kann später für Ablauf-Erinnerungen genutzt werden.
+model PantryItem {
+  id        String    @id @default(cuid())
+  /// Normalisierter Schlüssel (lowercase, Singular) – wird beim Vergleich genutzt.
+  key       String    @unique
+  /// Anzeigename, z. B. "Olivenöl"
+  name      String
+  /// Optionale Mengenangabe als Freitext, z. B. "1 Flasche", "500 g". Nicht maschinell ausgewertet.
+  quantity  String?   @default("")
+  /// Optionales Verfallsdatum für künftige Reminder.
+  expiresOn DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+/// Wann ein Rezept tatsächlich gekocht wurde (vom Plan getriggert oder
+/// manuell als "gemacht" markiert). Wird vom Planner als Recency-Filter
+/// gegen Wiederholungen in den letzten N Tagen genutzt.
+model MealHistory {
+  id        String   @id @default(cuid())
+  recipeId  String?
+  recipe    Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  /// Falls Remix oder freier Eintrag ohne Recipe-Link.
+  title     String
+  cookedOn  DateTime
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+
+  @@index([cookedOn])
+  @@index([recipeId, cookedOn])
 }

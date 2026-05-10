@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { appBaseUrl, openAIBaseUrl, plannerModel, remixModel } from "@/lib/env";
+import { DIET_TAGS, getDietaryConstraints } from "@/lib/dietary";
 import { RefreshIcon } from "../_components/icons";
 import { PendingForm, PendingButton } from "../_components/pending-form";
 
@@ -34,15 +35,21 @@ function maskedDatabaseUrl(value?: string | null) {
   }
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>;
+}) {
   if (!(await requireAuth())) redirect("/login");
+  const params = await searchParams;
 
-  const [recipes, plans, openShoppingItems, microsoftConnection, lastSync] = await Promise.all([
+  const [recipes, plans, openShoppingItems, microsoftConnection, lastSync, dietary] = await Promise.all([
     prisma.recipe.count({ where: { inTrash: false } }),
     prisma.mealPlan.count(),
     prisma.shoppingListItem.count({ where: { checked: false } }),
     prisma.microsoftConnection.findUnique({ where: { id: "default" } }),
     prisma.appSetting.findUnique({ where: { key: "lastPaprikaSync" } }),
+    getDietaryConstraints(),
   ]);
 
   const paprikaConfigured = Boolean(process.env.PAPRIKA_EMAIL && process.env.PAPRIKA_PASSWORD);
@@ -67,6 +74,12 @@ export default async function SettingsPage() {
           </PendingForm>
         </div>
       </div>
+
+      {params.saved === "dietary" ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          Diät- und Allergie-Constraints gespeichert.
+        </p>
+      ) : null}
 
       <div className="settings-grid">
         <section className="card card-pad settings-card">
@@ -121,6 +134,52 @@ export default async function SettingsPage() {
             <div><dt>Base URL</dt><dd>{openAIBaseUrl() || "OpenAI Standard"}</dd></div>
             <div><dt>API Key</dt><dd>{masked(process.env.OPENAI_API_KEY)}</dd></div>
           </dl>
+        </section>
+
+        <section className="card card-pad settings-card" style={{ gridColumn: "1 / -1" }}>
+          <span className="eyebrow">Planung</span>
+          <h2 className="section">Diät &amp; Allergien</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Diese Einstellungen fließen automatisch in jeden Plan- und Remix-Vorschlag ein, du musst sie nicht mehr im Notes-Feld eintippen.
+          </p>
+          <PendingForm
+            action="/api/settings/dietary"
+            method="post"
+            pendingMessage="Constraints werden gespeichert…"
+          >
+            <div className="diet-tags">
+              {DIET_TAGS.map((tag) => (
+                <label key={tag.value} className="diet-tag">
+                  <input
+                    type="checkbox"
+                    name="tag"
+                    value={tag.value}
+                    defaultChecked={dietary.tags.includes(tag.value)}
+                  />
+                  <span>{tag.label}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <label className="label" htmlFor="diet-notes">
+                Persönliche Regeln, Allergien, Abneigungen
+              </label>
+              <textarea
+                id="diet-notes"
+                className="textarea"
+                name="notes"
+                rows={3}
+                maxLength={800}
+                placeholder='z. B. „kein Sellerie", „wenig scharf", „Erdnussallergie"…'
+                defaultValue={dietary.notes}
+              />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <PendingButton className="btn" type="submit">
+                Speichern
+              </PendingButton>
+            </div>
+          </PendingForm>
         </section>
       </div>
     </>
