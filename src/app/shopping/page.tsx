@@ -82,7 +82,7 @@ export default async function ShoppingPage({
         </div>
         <div className="actions">
           {lists.length > 1 ? (
-            <form method="get" style={{ display: "flex", gap: 8 }}>
+            <form method="get" className="shop-list-switcher">
               <select className="select" name="list" defaultValue={activeList?.id ?? ""} aria-label="Liste wählen">
                 {lists.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -148,7 +148,7 @@ export default async function ShoppingPage({
             Nach Microsoft To Do exportieren
           </h3>
           <input type="hidden" name="shoppingListId" value={activeList.id} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div className="ms-export-grid">
             <div>
               <label className="label" htmlFor="ms-list">
                 Microsoft To Do Liste

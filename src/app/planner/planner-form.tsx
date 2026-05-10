@@ -73,11 +73,11 @@ export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople
   const today = localIso(new Date());
 
   useEffect(() => {
-    function onPointerDown(event: MouseEvent) {
+    function onPointerDown(event: PointerEvent) {
       if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
     }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
   function setDate(value: string) {
