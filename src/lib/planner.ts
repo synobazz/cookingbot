@@ -10,6 +10,7 @@ import {
   seasonForDate,
 } from "@/lib/planning";
 import { formatConstraintsForPrompt, getDietaryConstraints } from "@/lib/dietary";
+import { loadRecentlyCookedRecipeIds } from "@/lib/history";
 
 export const VALID_DAYS = [
   "monday",
@@ -121,7 +122,13 @@ export async function generateMealPlan(input: PlannerInput): Promise<GeneratedPl
     orderBy: [{ onFavorites: "desc" }, { rating: "desc" }, { updatedAt: "desc" }],
     take: 140,
   });
-  const recipes = recipeCandidates.filter((recipe) => !isUnsafeDinnerRecipe(recipe)).slice(0, 80);
+  // Recency-Filter: kürzlich gekochte Rezepte rausnehmen, damit der Plan
+  // nicht jede Woche dieselben Sachen empfiehlt. Wenn dadurch zu wenig
+  // übrig bleibt (< 14 Rezepte), Filter weglassen statt scheitern.
+  const recentlyCooked = await loadRecentlyCookedRecipeIds();
+  const filteredByRecency = recipeCandidates.filter((r) => !recentlyCooked.has(r.id));
+  const baseRecipes = filteredByRecency.length >= 14 ? filteredByRecency : recipeCandidates;
+  const recipes = baseRecipes.filter((recipe) => !isUnsafeDinnerRecipe(recipe)).slice(0, 80);
   if (recipes.length === 0) {
     throw new PlannerError(
       "Keine abendessentauglichen Rezepte im Cache. Bitte zuerst Paprika synchronisieren oder Kategorien prüfen.",

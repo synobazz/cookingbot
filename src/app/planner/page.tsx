@@ -24,6 +24,7 @@ type SearchParams = {
   error?: string;
   exported?: string;
   plan?: string;
+  cooked?: string;
 };
 
 export default async function PlannerPage({
@@ -87,6 +88,11 @@ export default async function PlannerPage({
       {params.exported === "paprika" ? (
         <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
           Remix wurde nach Paprika exportiert.
+        </p>
+      ) : null}
+      {params.cooked ? (
+        <p role="status" style={{ color: "var(--forest)", marginBottom: 18 }}>
+          Als gekocht markiert. Das Rezept taucht in den nächsten zwei Wochen seltener im Plan auf.
         </p>
       ) : null}
 
@@ -193,6 +199,16 @@ export default async function PlannerPage({
                         <input type="hidden" name="action" value="remix" />
                         <PendingButton className="btn ghost sm" type="submit">
                           Remix
+                        </PendingButton>
+                      </PendingForm>
+                      <PendingForm
+                        action="/api/plan/item/cooked"
+                        method="post"
+                        pendingMessage="Wird in der Historie gespeichert…"
+                      >
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <PendingButton className="btn ghost sm" type="submit">
+                          <CheckIcon /> Gekocht
                         </PendingButton>
                       </PendingForm>
                       <RecipeModal
