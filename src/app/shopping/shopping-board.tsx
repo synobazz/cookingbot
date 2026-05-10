@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CartIcon, ChevronDownIcon, DownloadIcon, TrashIcon } from "../_components/icons";
 import { categorize, sortCategoryKey } from "@/lib/shopping-categories";
+import { useToast } from "../_components/toast";
+import { PendingForm, PendingButton } from "../_components/pending-form";
 
 export type ShoppingItem = {
   id: string;
@@ -42,6 +44,7 @@ function groupItems(items: ShoppingItem[]) {
 
 export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const [, startTransition] = useTransition();
   const [items, setItems] = useState<ShoppingItem[]>(list?.items ?? []);
   const [hideDone, setHideDone] = useState(false);
@@ -76,6 +79,7 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
     } catch {
       // revert
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked: previous } : i)));
+      toast.error(`„${item.name}“ konnte nicht aktualisiert werden`);
     }
   }
 
@@ -86,12 +90,12 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
           Noch keine Einkaufsliste vorhanden. Erstelle einen Plan und generiere daraus eine Liste.
         </p>
         {restoreAvailable ? (
-          <form action="/api/shopping/bulk" method="post" style={{ marginTop: 18 }}>
+          <PendingForm action="/api/shopping/bulk" method="post" style={{ marginTop: 18 }} pendingMessage="Liste wird wiederhergestellt…">
             <input type="hidden" name="action" value="restore" />
-            <button className="btn ghost" type="submit">
+            <PendingButton className="btn ghost" type="submit">
               Liste wiederherstellen
-            </button>
-          </form>
+            </PendingButton>
+          </PendingForm>
         ) : null}
       </div>
     );
@@ -127,26 +131,26 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
       </div>
 
       <div className="shop-bulk-actions">
-        <form action="/api/shopping/bulk" method="post">
+        <PendingForm action="/api/shopping/bulk" method="post" pendingMessage="Markiere alle als erledigt…">
           <input type="hidden" name="shoppingListId" value={list.id} />
           <input type="hidden" name="action" value="complete" />
-          <button className="btn ghost" type="submit" disabled={total === 0 || doneCount === total}>
+          <PendingButton className="btn ghost" type="submit" disabled={total === 0 || doneCount === total}>
             Alle als erledigt markieren
-          </button>
-        </form>
-        <form action="/api/shopping/bulk" method="post">
+          </PendingButton>
+        </PendingForm>
+        <PendingForm action="/api/shopping/bulk" method="post" pendingMessage="Liste wird gelöscht…">
           <input type="hidden" name="shoppingListId" value={list.id} />
           <input type="hidden" name="action" value="delete" />
-          <button className="btn ghost" type="submit" disabled={total === 0}>
+          <PendingButton className="btn ghost" type="submit" disabled={total === 0}>
             Liste löschen
-          </button>
-        </form>
-        <form action="/api/shopping/bulk" method="post">
+          </PendingButton>
+        </PendingForm>
+        <PendingForm action="/api/shopping/bulk" method="post" pendingMessage="Liste wird wiederhergestellt…">
           <input type="hidden" name="action" value="restore" />
-          <button className="btn ghost" type="submit" disabled={!restoreAvailable}>
+          <PendingButton className="btn ghost" type="submit" disabled={!restoreAvailable}>
             Liste wiederherstellen
-          </button>
-        </form>
+          </PendingButton>
+        </PendingForm>
       </div>
 
       {!microsoftConnected ? (

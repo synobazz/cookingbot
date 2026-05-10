@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "../_components/icons";
 import { DayToggleGroup, type DayToggleItem } from "../_components/day-toggle-group";
 import { PeopleStepper } from "../_components/people-stepper";
+import { PendingForm } from "../_components/pending-form";
 
 type Props = {
   defaultStart: string;
@@ -107,7 +108,13 @@ export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople
   }
 
   return (
-    <form action="/api/plan/generate" method="post" className="card card-pad">
+    <PendingForm
+      action="/api/plan/generate"
+      method="post"
+      className="card card-pad"
+      pendingMessage="Plan wird erstellt…"
+      pendingDetail="Dauert ~1–2 Minuten"
+    >
       <h3>Neue Woche</h3>
       <div className="form-grid">
         <div>
@@ -218,6 +225,6 @@ export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople
           Dauert ~1–2&nbsp;Minuten
         </p>
       </div>
-    </form>
+    </PendingForm>
   );
 }

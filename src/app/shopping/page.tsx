@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { getMicrosoftConnection, listMicrosoftTodoLists } from "@/lib/microsoft";
 import { ShoppingBoard, type ShoppingListData } from "./shopping-board";
+import { PendingForm, PendingButton } from "../_components/pending-form";
 
 type SearchParams = {
   error?: string;
@@ -136,11 +137,12 @@ export default async function ShoppingPage({
       <ShoppingBoard list={boardData} microsoftConnected={Boolean(microsoftConnection)} restoreAvailable={Boolean(restoreSetting)} />
 
       {microsoftConnection && activeList ? (
-        <form
+        <PendingForm
           className="card card-pad"
           action="/api/microsoft/export-shopping"
           method="post"
           style={{ marginTop: 24 }}
+          pendingMessage="Einkaufsliste wird zu Microsoft To Do exportiert…"
         >
           <h3 style={{ margin: "0 0 14px", fontFamily: "var(--font-fraunces)", fontWeight: 500 }}>
             Nach Microsoft To Do exportieren
@@ -192,11 +194,11 @@ export default async function ShoppingPage({
             <input type="checkbox" name="includeChecked" /> Erledigte ebenfalls exportieren
           </label>
           <div style={{ marginTop: 14 }}>
-            <button className="btn" type="submit">
+            <PendingButton className="btn" type="submit">
               Neue Einträge senden
-            </button>
+            </PendingButton>
           </div>
-        </form>
+        </PendingForm>
       ) : null}
 
       {microsoftConnection ? (
@@ -205,15 +207,15 @@ export default async function ShoppingPage({
             Verbunden als {microsoftConnection.accountEmail || microsoftConnection.accountName || "Microsoft"}
           </span>
           <span aria-hidden>·</span>
-          <form action="/api/microsoft/disconnect" method="post">
-            <button
+          <PendingForm action="/api/microsoft/disconnect" method="post" pendingMessage="Microsoft-Verbindung wird getrennt…">
+            <PendingButton
               className="muted"
               type="submit"
               style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline", font: "inherit", color: "inherit" }}
             >
               trennen
-            </button>
-          </form>
+            </PendingButton>
+          </PendingForm>
         </div>
       ) : null}
     </>

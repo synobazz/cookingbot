@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Brand } from "./brand";
 import { BookIcon, CalendarIcon, CartIcon, CogIcon, HomeIcon, LogoutIcon } from "./icons";
+import { PendingForm, PendingButton } from "./pending-form";
 
 type NavCounts = {
   recipes: number;
@@ -58,12 +59,12 @@ export function Sidebar({ counts }: SidebarProps) {
           <CogIcon />
           Einstellungen
         </Link>
-        <form action="/api/auth/logout" method="post">
-          <button className="sidebar-foot-btn" type="submit" style={{ width: "100%" }}>
+        <PendingForm action="/api/auth/logout" method="post" pendingMessage="Abmeldung läuft…">
+          <PendingButton className="sidebar-foot-btn" type="submit" style={{ width: "100%" }}>
             <LogoutIcon />
             Logout
-          </button>
-        </form>
+          </PendingButton>
+        </PendingForm>
       </div>
     </aside>
   );

@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { EyeIcon, EyeOffIcon } from "../_components/icons";
+import { PendingForm, PendingButton } from "../_components/pending-form";
 
 export function LoginForm({ errorMessage }: { errorMessage: string | null }) {
   const [show, setShow] = useState(false);
   return (
-    <form className="login-form" method="post" action="/api/auth/login">
+    <PendingForm className="login-form" method="post" action="/api/auth/login" pendingMessage="Anmeldung läuft…">
       {errorMessage ? (
         <p role="alert" aria-live="polite" style={{ color: "var(--warn)", margin: 0, fontSize: ".88rem" }}>
           {errorMessage}
@@ -37,9 +38,9 @@ export function LoginForm({ errorMessage }: { errorMessage: string | null }) {
           </button>
         </div>
       </div>
-      <button className="btn block" type="submit">
+      <PendingButton className="btn block" type="submit">
         In die Küche
-      </button>
-    </form>
+      </PendingButton>
+    </PendingForm>
   );
 }

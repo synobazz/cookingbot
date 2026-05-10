@@ -7,6 +7,7 @@ import { requireAuth } from "@/lib/auth";
 import { dayLabel, defaultDays as defaultDayKeys } from "@/lib/planning";
 import { CartIcon, CheckIcon, DownloadIcon } from "../_components/icons";
 import { RecipeModal } from "../_components/recipe-modal";
+import { PendingForm, PendingButton } from "../_components/pending-form";
 import { PlannerForm } from "./planner-form";
 
 const DAY_SHORT: Record<string, string> = {
@@ -171,32 +172,45 @@ export default async function PlannerPage({
                       ) : null}
                     </div>
                     <div className="plan-acts">
-                      <form action="/api/plan/item" method="post">
+                      <PendingForm
+                        action="/api/plan/item"
+                        method="post"
+                        pendingMessage="Tausch wird gesucht…"
+                      >
                         <input type="hidden" name="itemId" value={item.id} />
                         <input type="hidden" name="action" value="replan" />
-                        <button className="btn ghost sm" type="submit">
+                        <PendingButton className="btn ghost sm" type="submit">
                           Tausch
-                        </button>
-                      </form>
-                      <form action="/api/plan/item" method="post" data-pending-message="Remix wird erstellt… das kann kurz dauern.">
+                        </PendingButton>
+                      </PendingForm>
+                      <PendingForm
+                        action="/api/plan/item"
+                        method="post"
+                        pendingMessage="Remix wird erstellt…"
+                        pendingDetail="Das kann kurz dauern."
+                      >
                         <input type="hidden" name="itemId" value={item.id} />
                         <input type="hidden" name="action" value="remix" />
-                        <button className="btn ghost sm" type="submit" data-pending-message="Remix wird erstellt… das kann kurz dauern.">
+                        <PendingButton className="btn ghost sm" type="submit">
                           Remix
-                        </button>
-                      </form>
+                        </PendingButton>
+                      </PendingForm>
                       <RecipeModal
                         recipe={subject}
                         title={item.title}
                         triggerLabel="Öffnen"
                         triggerClassName="btn sm"
                         actionSlot={item.isRemix ? (
-                          <form action="/api/paprika/export-remix" method="post">
+                          <PendingForm
+                            action="/api/paprika/export-remix"
+                            method="post"
+                            pendingMessage="Remix wird zu Paprika exportiert…"
+                          >
                             <input type="hidden" name="itemId" value={item.id} />
-                            <button className="btn sm" type="submit">
+                            <PendingButton className="btn sm" type="submit">
                               Dieses Rezept exportieren
-                            </button>
-                          </form>
+                            </PendingButton>
+                          </PendingForm>
                         ) : null}
                       />
                     </div>
@@ -214,18 +228,26 @@ export default async function PlannerPage({
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <form action="/api/microsoft/export-shopping" method="post">
+                  <PendingForm
+                    action="/api/microsoft/export-shopping"
+                    method="post"
+                    pendingMessage="Einkaufsliste wird zu Microsoft To Do exportiert…"
+                  >
                     <input type="hidden" name="planId" value={activePlan.id} />
-                    <button className="btn ghost" type="submit">
+                    <PendingButton className="btn ghost" type="submit">
                       <DownloadIcon /> Export
-                    </button>
-                  </form>
-                  <form action="/api/shopping/generate" method="post">
+                    </PendingButton>
+                  </PendingForm>
+                  <PendingForm
+                    action="/api/shopping/generate"
+                    method="post"
+                    pendingMessage="Einkaufsliste wird erzeugt…"
+                  >
                     <input type="hidden" name="planId" value={activePlan.id} />
-                    <button className="btn" type="submit">
+                    <PendingButton className="btn" type="submit">
                       <CartIcon /> Einkaufsliste erzeugen
-                    </button>
-                  </form>
+                    </PendingButton>
+                  </PendingForm>
                 </div>
               </div>
             </>

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { appBaseUrl, openAIBaseUrl, plannerModel, remixModel } from "@/lib/env";
 import { RefreshIcon } from "../_components/icons";
+import { PendingForm, PendingButton } from "../_components/pending-form";
 
 function statusChip(ok: boolean, label: string) {
   return <span className={`chip ${ok ? "forest" : "warn"}`}>{label}</span>;
@@ -59,11 +60,11 @@ export default async function SettingsPage() {
           <span className="sub">Status, Integrationen und schnelle Verwaltungsaktionen.</span>
         </div>
         <div className="actions">
-          <form action="/api/sync/paprika" method="post">
-            <button className="btn ghost" type="submit">
+          <PendingForm action="/api/sync/paprika" method="post" pendingMessage="Paprika wird synchronisiert…">
+            <PendingButton className="btn ghost" type="submit">
               <RefreshIcon /> Paprika syncen
-            </button>
-          </form>
+            </PendingButton>
+          </PendingForm>
         </div>
       </div>
 

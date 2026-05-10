@@ -9,6 +9,7 @@ import { isUnsafeDinnerRecipe, safeJson, seasonForDate } from "@/lib/planning";
 import { RecipeCard } from "../_components/recipe-card";
 import { RecipeFilters, type FilterTag } from "../_components/recipe-filters";
 import { RefreshIcon } from "../_components/icons";
+import { PendingForm, PendingButton } from "../_components/pending-form";
 
 type SearchParams = {
   q?: string;
@@ -134,11 +135,11 @@ export default async function RecipesPage({
           </span>
         </div>
         <div className="actions">
-          <form action="/api/sync/paprika" method="post">
-            <button className="btn ghost" type="submit">
+          <PendingForm action="/api/sync/paprika" method="post" pendingMessage="Paprika wird synchronisiert…">
+            <PendingButton className="btn ghost" type="submit">
               <RefreshIcon /> Jetzt synchronisieren
-            </button>
-          </form>
+            </PendingButton>
+          </PendingForm>
           <Link className="btn" href="/planner">
             Neue Woche planen
           </Link>
@@ -194,12 +195,12 @@ export default async function RecipesPage({
                 }}
                 topChip={topChip}
                 extra={
-                  <form action="/api/recipes/toggle-planning" method="post">
+                  <PendingForm action="/api/recipes/toggle-planning" method="post" pendingMessage={excluded ? "Wird wieder eingeplant…" : "Wird ausgeschlossen…"}>
                     <input type="hidden" name="recipeId" value={r.id} />
-                    <button className="btn ghost sm" type="submit">
+                    <PendingButton className="btn ghost sm" type="submit">
                       {excluded ? "Einplanen" : "Ausschließen"}
-                    </button>
-                  </form>
+                    </PendingButton>
+                  </PendingForm>
                 }
               />
             );

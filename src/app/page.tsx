@@ -8,6 +8,7 @@ import { seasonLabel } from "@/lib/planning";
 import { BookIcon, CalendarIcon, CartIcon, PlusIcon, RefreshIcon, ShuffleIcon } from "./_components/icons";
 import { RecipeCard } from "./_components/recipe-card";
 import { RecipeModal } from "./_components/recipe-modal";
+import { PendingForm, PendingButton } from "./_components/pending-form";
 
 const WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 const WEEKDAY_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
@@ -96,11 +97,11 @@ export default async function HomePage() {
           </span>
         </div>
         <div className="actions">
-          <form action="/api/sync/paprika" method="post">
-            <button className="btn ghost" type="submit">
+          <PendingForm action="/api/sync/paprika" method="post" pendingMessage="Paprika wird synchronisiert…">
+            <PendingButton className="btn ghost" type="submit">
               <RefreshIcon /> Paprika syncen
-            </button>
-          </form>
+            </PendingButton>
+          </PendingForm>
           <Link className="btn" href="/planner">
             <PlusIcon /> Neue Woche planen
           </Link>
