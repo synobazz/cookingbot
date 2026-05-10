@@ -20,10 +20,19 @@ describe("foldLine", () => {
     const long = "X".repeat(200);
     const folded = foldLine(long);
     expect(folded).toContain("\r\n ");
-    // jeder Chunk darf max 75 Bytes sein
-    for (const chunk of folded.split("\r\n ")) {
-      expect(Buffer.byteLength(chunk, "utf8")).toBeLessThanOrEqual(75);
-    }
+    // Jeder physische Chunk darf max. 75 Bytes sein; Continuation-Lines
+    // enthalten im echten iCal zusätzlich das führende Leerzeichen.
+    folded.split("\r\n ").forEach((chunk, index) => {
+      const continuationPrefix = index === 0 ? 0 : 1;
+      expect(Buffer.byteLength(chunk, "utf8") + continuationPrefix).toBeLessThanOrEqual(75);
+    });
+  });
+
+  it("does not split multi-byte characters while folding", () => {
+    const long = `SUMMARY:${"Äpfel 🍎 ".repeat(30)}`;
+    const folded = foldLine(long);
+    expect(folded).not.toContain("�");
+    expect(folded.replace(/\r\n /g, "")).toBe(long);
   });
 });
 

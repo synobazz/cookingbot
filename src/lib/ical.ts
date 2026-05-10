@@ -53,15 +53,29 @@ export function escapeIcsText(value: string): string {
  * Folding-Indikator: CRLF + Leerzeichen am Anfang der Folge-Zeile.
  */
 export function foldLine(line: string): string {
-  const bytes = Buffer.from(line, "utf8");
-  if (bytes.length <= LINE_LIMIT) return line;
+  if (Buffer.byteLength(line, "utf8") <= LINE_LIMIT) return line;
+
   const chunks: string[] = [];
-  let offset = 0;
-  while (offset < bytes.length) {
-    const slice = bytes.subarray(offset, Math.min(offset + LINE_LIMIT, bytes.length));
-    chunks.push(slice.toString("utf8"));
-    offset += LINE_LIMIT;
+  let current = "";
+  let currentBytes = 0;
+  let limit = LINE_LIMIT;
+
+  // Fold on Unicode code-point boundaries. Splitting the UTF-8 byte buffer
+  // directly can bisect umlauts/emoji and turn them into replacement chars.
+  for (const char of Array.from(line)) {
+    const charBytes = Buffer.byteLength(char, "utf8");
+    if (current && currentBytes + charBytes > limit) {
+      chunks.push(current);
+      current = "";
+      currentBytes = 0;
+      // Continuation lines include the leading space in the 75-octet limit.
+      limit = LINE_LIMIT - 1;
+    }
+    current += char;
+    currentBytes += charBytes;
   }
+
+  if (current) chunks.push(current);
   return chunks.join("\r\n ");
 }
 
