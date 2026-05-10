@@ -221,3 +221,24 @@ export function TrashIcon(p: IconProps) {
     </svg>
   );
 }
+
+export function PantryIcon(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M5 3h14v18H5z" />
+      <path d="M5 9h14M5 15h14" />
+      <circle cx="9" cy="6" r="1" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="18" r="1" />
+    </svg>
+  );
+}
+
+export function HeartPulseIcon(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M12 21s-7-4.5-9.5-9A5 5 0 0112 6a5 5 0 019.5 6c-.6 1-1.4 2-2.4 2.9" />
+      <path d="M3 12h4l2-3 3 6 2-3h7" />
+    </svg>
+  );
+}

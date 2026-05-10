@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Brand } from "./brand";
-import { BookIcon, CalendarIcon, CartIcon, CogIcon, HomeIcon, LogoutIcon } from "./icons";
+import { BookIcon, CalendarIcon, CartIcon, CogIcon, HomeIcon, LogoutIcon, PantryIcon } from "./icons";
 import { PendingForm, PendingButton } from "./pending-form";
 
 type NavCounts = {
@@ -20,6 +20,7 @@ const items = [
   { href: "/recipes", label: "Rezepte", Icon: BookIcon, key: "recipes" as const },
   { href: "/planner", label: "Wochenplan", Icon: CalendarIcon, key: "planner" as const },
   { href: "/shopping", label: "Einkauf", Icon: CartIcon, key: "shopping" as const },
+  { href: "/pantry", label: "Vorrat", Icon: PantryIcon, key: "pantry" as const },
 ];
 
 function isActive(pathname: string, href: string) {
