@@ -3,7 +3,10 @@
  * Wird nur als Fallback verwendet, wenn `ShoppingListItem.category` leer ist.
  */
 
+export const STAPLE_CHECK_CATEGORY = "Hast du noch?" as const;
+
 export const CATEGORY_ORDER = [
+  STAPLE_CHECK_CATEGORY,
   "Obst & Gemüse",
   "Backwaren",
   "Milchprodukte",

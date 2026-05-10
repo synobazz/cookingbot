@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CartIcon, ChevronDownIcon, DownloadIcon, TrashIcon } from "../_components/icons";
-import { categorize, sortCategoryKey } from "@/lib/shopping-categories";
+import { categorize, sortCategoryKey, STAPLE_CHECK_CATEGORY } from "@/lib/shopping-categories";
 import { useToast } from "../_components/toast";
 import { PendingForm, PendingButton } from "../_components/pending-form";
 
@@ -173,8 +173,12 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
         if (visible.length === 0) return null;
         const isCollapsed = collapsed.has(category);
         const doneInCat = catItems.filter((i) => i.checked).length;
+        const isStapleBlock = category === STAPLE_CHECK_CATEGORY;
         return (
-          <div key={category} className={`shop-cat${isCollapsed ? " collapsed" : ""}`}>
+          <div
+            key={category}
+            className={`shop-cat${isCollapsed ? " collapsed" : ""}${isStapleBlock ? " shop-staples" : ""}`}
+          >
             <button
               type="button"
               className="shop-cat-head"
@@ -184,7 +188,9 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
             >
               <h4>{category}</h4>
               <span className="count">
-                {catItems.length} Artikel · {doneInCat} erledigt
+                {isStapleBlock
+                  ? `${catItems.length} Vorrat-Check · abhaken, was du noch hast`
+                  : `${catItems.length} Artikel · ${doneInCat} erledigt`}
               </span>
               <ChevronDownIcon className="ico chev" />
             </button>
