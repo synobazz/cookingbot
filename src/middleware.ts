@@ -43,6 +43,9 @@ const CSP = [
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
+  // PWA: Manifest und Service Worker liegen beide unter eigenem Origin.
+  "manifest-src 'self'",
+  "worker-src 'self'",
 ].join("; ");
 
 export function middleware(_req: NextRequest) {

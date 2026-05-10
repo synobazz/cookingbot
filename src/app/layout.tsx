@@ -7,6 +7,7 @@ import { Sidebar } from "./_components/sidebar";
 import { Topbar } from "./_components/topbar";
 import { MobileTabbar } from "./_components/mobile-tabbar";
 import { ToastProvider } from "./_components/toast";
+import { ServiceWorkerRegister } from "./_components/sw-register";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -24,6 +25,16 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "Cookingbot",
   description: "Wochenplanung aus deinen Paprika-Rezepten",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Cookingbot",
+  },
 };
 
 // `viewportFit: "cover"` ist Voraussetzung dafür, dass die im CSS
@@ -53,6 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="de" className={`${fraunces.variable} ${dmSans.variable}`}>
       <body>
         <ToastProvider>
+          <ServiceWorkerRegister />
           <div className="grain" aria-hidden />
           {authed ? (
             <div className="app">

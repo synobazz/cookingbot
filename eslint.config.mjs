@@ -35,4 +35,18 @@ export default [
       "no-empty": ["error", { allowEmptyCatch: true }],
     },
   },
+  // Service Worker läuft im SW-Scope, nicht im Window-Scope.
+  {
+    files: ["public/sw.js"],
+    languageOptions: {
+      globals: {
+        self: "readonly",
+        caches: "readonly",
+        fetch: "readonly",
+        Response: "readonly",
+        URL: "readonly",
+        Promise: "readonly",
+      },
+    },
+  },
 ];
