@@ -244,6 +244,13 @@ export default async function PlannerPage({
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <a
+                    className="btn ghost"
+                    href={`/api/plan/${activePlan.id}/ical`}
+                    download
+                  >
+                    <DownloadIcon /> Kalender (.ics)
+                  </a>
                   <PendingForm
                     action="/api/microsoft/export-shopping"
                     method="post"
