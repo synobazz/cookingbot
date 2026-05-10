@@ -25,10 +25,30 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { verifyMcpBearer } from "@/lib/auth";
 import { createCookingbotMcpServer } from "@/lib/mcp-server";
 import { registerCookingbotTools } from "@/lib/mcp-tools";
+import { clientKey, createRateLimiter } from "@/lib/rate-limit";
 
 // Force dynamic rendering: niemals SSG/Caching für JSON-RPC-Endpoints.
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+/**
+ * Rate-Limit gegen Bearer-Token-Brute-Force.
+ *
+ * Auch wenn der Token kryptografisch lang ist, schützt das Limit gegen
+ * a) DoS durch tausende unauth-Requests/s und
+ * b) langsam-tröpfelnde Probier-Versuche (z. B. Wörterbuch-Angriff,
+ *    falls jemand einen kürzeren Token gewählt hat).
+ *
+ * Nur Fehlversuche werden gezählt — eine erfolgreiche Auth setzt das
+ * Counter-Bucket zurück, damit eine aktive Claude-Session mit vielen
+ * Tool-Calls nicht ins Limit läuft.
+ *
+ * Bewusst großzügiger als das Login-Limit (50 statt 8), weil Tool-Calls
+ * von außen typischerweise in Bursts kommen und ein versehentlich
+ * falscher Header in einer Connector-Konfiguration nicht binnen weniger
+ * Sekunden den ganzen Tag aussperren soll. Window: 15 Minuten.
+ */
+const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 50 });
 
 function unauthorized(status: 401 | 503, message: string) {
   // 401-Antworten lt. MCP-Auth-Spec idealerweise mit WWW-Authenticate-Header.
@@ -38,9 +58,44 @@ function unauthorized(status: 401 | 503, message: string) {
   return new NextResponse(JSON.stringify({ error: message }), { status, headers });
 }
 
+function tooManyRequests() {
+  return new NextResponse(
+    JSON.stringify({
+      error: "Too many failed authentication attempts. Try again later.",
+    }),
+    {
+      status: 429,
+      headers: {
+        "content-type": "application/json",
+        // 15 Minuten in Sekunden, damit Clients sinnvoll backoff'en.
+        "retry-after": String(15 * 60),
+      },
+    },
+  );
+}
+
 async function handle(req: NextRequest): Promise<Response> {
+  const key = clientKey(req);
+
+  // Rate-Limit-Check vor dem Bearer-Vergleich. Wenn der Bucket voll ist,
+  // gar nicht erst gegen den Token vergleichen — der timing-safe-Check
+  // wäre zwar billig, aber wir wollen DoS-Druck früher abfangen.
+  if (authLimiter.isLimited(key)) {
+    return tooManyRequests();
+  }
+
   const auth = verifyMcpBearer(req.headers.get("authorization"));
-  if (!auth.ok) return unauthorized(auth.status, auth.message);
+  if (!auth.ok) {
+    // Nur "echte" Auth-Fehler (401) zählen als Fehlversuch. 503 bedeutet
+    // "Endpoint deaktiviert (Token nicht konfiguriert)" und ist kein
+    // Brute-Force-Vektor — dort bringt Limit-Erhöhung keinen Mehrwert.
+    if (auth.status === 401) authLimiter.recordFailure(key);
+    return unauthorized(auth.status, auth.message);
+  }
+
+  // Erfolgreiche Auth → Counter zurücksetzen, damit ein einmal richtig
+  // konfigurierter Claude-Connector nie ins Limit läuft.
+  authLimiter.reset(key);
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     // Stateless: keinen Session-ID-Generator → Server arbeitet ohne Sessions.
@@ -56,7 +111,16 @@ async function handle(req: NextRequest): Promise<Response> {
     await server.connect(transport);
     return await transport.handleRequest(req);
   } catch (error) {
-    console.error("MCP request handling failed", error);
+    // Stack-Trace nur strukturiert ins Server-Log, nicht an den Client.
+    // Der Client sieht eine generische Meldung; im Container-Log steht
+    // ein eindeutiger Tag, mit dem sich Vorfälle korrelieren lassen.
+    console.error(
+      JSON.stringify({
+        tag: "mcp.transport_error",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
+    );
     return new NextResponse(
       JSON.stringify({ error: "MCP transport error" }),
       { status: 500, headers: { "content-type": "application/json" } },
