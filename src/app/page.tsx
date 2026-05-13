@@ -222,15 +222,12 @@ export default async function HomePage() {
           {weekSlots.map((slot) => {
             const empty = !slot.item;
             const tag = slot.item ? (slot.isToday ? "Heute Abend" : deriveTag(slot.item)) : null;
-            return (
-              <div
-                key={slot.key}
-                className={`day${slot.isToday ? " today" : ""}${empty ? " empty" : ""}`}
-              >
-                <div className="dlabel">
+            const dayContent = (
+              <>
+                <span className="dlabel">
                   <b>{slot.short}</b>
                   <small>{format(slot.date, "d")}</small>
-                </div>
+                </span>
                 {empty ? (
                   <Link className="add-btn" href="/planner">
                     + Gericht wählen
@@ -241,6 +238,50 @@ export default async function HomePage() {
                     <span className="meal-name">{slot.item!.title}</span>
                   </>
                 )}
+              </>
+            );
+
+            if (slot.item) {
+              const recipe = slot.item.recipe;
+              return (
+                <RecipeModal
+                  key={slot.key}
+                  recipe={
+                    recipe
+                      ? {
+                          id: recipe.id,
+                          name: slot.item.title,
+                          description: recipe.description,
+                          ingredients: recipe.ingredients,
+                          directions: recipe.directions,
+                          notes: recipe.notes,
+                          servings: recipe.servings,
+                          prepTime: recipe.prepTime,
+                          cookTime: recipe.cookTime,
+                          totalTime: recipe.totalTime,
+                          sourceUrl: recipe.sourceUrl,
+                          rating: recipe.rating,
+                          source: recipe.source,
+                        }
+                      : {
+                          name: slot.item.title,
+                          ingredients: slot.item.ingredients,
+                          directions: slot.item.instructions,
+                        }
+                  }
+                  title={slot.item.title}
+                  triggerLabel={dayContent}
+                  triggerClassName={`day${slot.isToday ? " today" : ""}`}
+                />
+              );
+            }
+
+            return (
+              <div
+                key={slot.key}
+                className={`day${slot.isToday ? " today" : ""}${empty ? " empty" : ""}`}
+              >
+                {dayContent}
               </div>
             );
           })}
