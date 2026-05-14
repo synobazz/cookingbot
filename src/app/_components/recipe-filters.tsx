@@ -64,7 +64,7 @@ export function RecipeFilters({ tags, totalCount }: Props) {
         <SearchIcon style={{ marginLeft: 14, color: "var(--muted)" }} />
         <input
           className="input"
-          placeholder="Suche nach Risotto, Curry, Suppe…"
+          placeholder="Suche nach Risotto, Curry, …"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Rezepte durchsuchen"
