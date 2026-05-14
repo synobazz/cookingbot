@@ -595,6 +595,31 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 
 /* =========== Tablet (Hochformat / kleine Laptops) =========== */
 @media (max-width: 768px) {
+  .page-head .actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .page-head .actions form,
+  .page-head .actions .btn,
+  .page-head .actions button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .week-card { padding: 16px; }
+  .week-head { align-items: flex-start; flex-direction: column; margin-bottom: 14px; }
+  .week-head .btn { width: 100%; }
+  .week-grid { display: flex; flex-direction: column; gap: 8px; overflow: visible; padding-bottom: 0; }
+  .day { min-height: auto; display: grid; grid-template-columns: 54px minmax(0, 1fr); grid-template-rows: auto auto; gap: 3px 12px; padding: 12px; cursor: default; }
+  .day:hover { transform: none; }
+  .day.today::after { top: 8px; right: 8px; }
+  .day .dlabel { grid-row: 1 / 3; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding-right: 12px; border-right: 1px dashed var(--line); }
+  .day .dlabel b { letter-spacing: 0.12em; }
+  .day .dlabel small { font-size: 1.25rem; }
+  .day .meal-tag { grid-column: 2; padding-right: 58px; }
+  .day .meal-name { grid-column: 2; margin-top: 0; font-size: 0.96rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .day .add-btn { grid-column: 2; justify-content: flex-start; width: auto; margin-top: 0; padding: 0; border: 0; color: var(--terra); background: transparent; }
+
   .planner-grid { gap: 18px; }
   .planner-form .card { border-radius: 18px; }
   .plan-week { padding: 16px; border-radius: 18px; }
@@ -722,19 +747,6 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 
   .stack { grid-template-columns: 1fr 1fr; }
   .stat-card:last-child { grid-column: 1 / -1; }
-  .week-card { padding: 16px; }
-  .week-head { align-items: flex-start; flex-direction: column; margin-bottom: 14px; }
-  .week-head .btn { width: 100%; }
-  .week-grid { display: flex; flex-direction: column; gap: 8px; overflow: visible; padding-bottom: 0; }
-  .day { min-height: auto; display: grid; grid-template-columns: 54px minmax(0, 1fr); grid-template-rows: auto auto; gap: 3px 12px; padding: 12px; cursor: default; }
-  .day:hover { transform: none; }
-  .day.today::after { top: 8px; right: 8px; }
-  .day .dlabel { grid-row: 1 / 3; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding-right: 12px; border-right: 1px dashed var(--line); }
-  .day .dlabel b { letter-spacing: 0.12em; }
-  .day .dlabel small { font-size: 1.25rem; }
-  .day .meal-tag { grid-column: 2; padding-right: 58px; }
-  .day .meal-name { grid-column: 2; margin-top: 0; font-size: 0.96rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .day .add-btn { grid-column: 2; justify-content: flex-start; width: auto; margin-top: 0; padding: 0; border: 0; color: var(--terra); background: transparent; }
   .rec-strip, .rec-grid { grid-template-columns: 1fr; gap: 12px; }
   .recipe-img:not(.modal-hero) { aspect-ratio: 16 / 10; }
   .modal-back { padding: max(12px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom)); align-items: flex-start; overflow-y: auto; }
