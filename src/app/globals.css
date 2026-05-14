@@ -347,8 +347,10 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .recipe-info .recipe-meta-2 .ico { width: 13px; height: 13px; }
 
 /* =========== Recipes page =========== */
-.search-bar { display: flex; gap: 10px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px; margin-bottom: 18px; }
-.search-bar .input { border: 0; background: transparent; padding-left: 14px; }
+.search-bar { display: flex; flex-wrap: nowrap; gap: 10px; align-items: center; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px; margin-bottom: 18px; }
+.search-bar .input { flex: 1 1 auto; width: auto; min-width: 0; border: 0; background: transparent; padding-left: 14px; }
+.search-bar .ico { flex: none; }
+.search-bar .btn { flex: none; }
 .search-bar .input:focus { box-shadow: none; }
 .filters-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; align-items: center; }
 .filter-pill { background: var(--card); color: var(--ink-2); font-size: 0.85rem; font-weight: 500; border: 1px solid var(--line-strong); padding: 7px 13px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
@@ -578,7 +580,7 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
   .stat-card { padding: 14px; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; }
   .stat-card .stat-icon { width: 34px; height: 34px; }
   .stat-card .num { font-size: 1.4rem; }
-  .search-bar { flex-wrap: wrap; }
+  .search-bar { flex-wrap: nowrap; }
   .search-bar .input { min-width: 0; }
   .filters-row { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 6px; margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
   .filter-pill { flex: none; }
