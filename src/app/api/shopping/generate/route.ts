@@ -6,6 +6,7 @@ import { aggregateIngredients, type AggregatedItem } from "@/lib/ingredient-pars
 import { loadPantryKeySet } from "@/lib/pantry";
 import { categorize, STAPLE_CHECK_CATEGORY } from "@/lib/shopping-categories";
 import { appUrl } from "@/lib/redirect";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 /**
  * Erzeugt die Einkaufsliste aus dem Plan.
@@ -20,6 +21,8 @@ import { appUrl } from "@/lib/redirect";
  *      eigenen Block oben rendern kann.
  */
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   const form = await req.formData();
   const planId = String(form.get("planId") || "");

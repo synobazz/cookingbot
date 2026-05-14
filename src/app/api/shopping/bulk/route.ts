@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { appUrl } from "@/lib/redirect";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 const BACKUP_KEY = "lastDeletedShoppingList";
 
@@ -39,6 +40,8 @@ function redirectShopping(req: NextRequest, params: Record<string, string>) {
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
 
   const form = await req.formData();

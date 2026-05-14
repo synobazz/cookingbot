@@ -162,9 +162,11 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
             <h4>Microsoft To Do verbinden</h4>
             <p>Schick offene Einkaufspunkte direkt als Aufgaben in deine „Einkauf"-Liste.</p>
           </div>
-          <a className="btn" href="/api/microsoft/connect">
-            Verbinden
-          </a>
+          <form action="/api/microsoft/connect" method="post">
+            <button className="btn" type="submit">
+              Verbinden
+            </button>
+          </form>
         </div>
       ) : null}
 

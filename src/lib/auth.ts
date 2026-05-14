@@ -1,18 +1,37 @@
 import { cookies } from "next/headers";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { adminPassword, mcpBearerToken, sessionSecret } from "@/lib/env";
 
-const COOKIE_NAME = "cookingbot_session";
+/**
+ * Session cookie name. When we're on HTTPS we additionally use the
+ * `__Host-` prefix variant, which forbids the cookie from carrying a
+ * `Domain` attribute and requires `Secure`+`Path=/`. That makes the
+ * cookie impossible to forge from a sibling/parent subdomain even if
+ * one is ever taken over.
+ *
+ * On HTTP (dev) we fall back to the plain name so login still works.
+ */
+const COOKIE_NAME_PLAIN = "cookingbot_session";
+const COOKIE_NAME_HOST = "__Host-cookingbot_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 function shouldUseSecureCookie() {
   return process.env.APP_BASE_URL?.startsWith("https://") ?? process.env.NODE_ENV === "production";
 }
 
+function activeCookieName() {
+  return shouldUseSecureCookie() ? COOKIE_NAME_HOST : COOKIE_NAME_PLAIN;
+}
+
+/**
+ * Constant-time comparison that does not leak the length of the secret
+ * by short-circuiting on unequal buffer lengths. We hash both inputs to
+ * a fixed 32-byte SHA-256 digest first.
+ */
 function safeEqual(a: string, b: string) {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  return left.length === right.length && timingSafeEqual(left, right);
+  const left = createHash("sha256").update(a).digest();
+  const right = createHash("sha256").update(b).digest();
+  return timingSafeEqual(left, right);
 }
 
 function sign(payload: string) {
@@ -43,15 +62,20 @@ export function isValidSessionToken(token?: string) {
 
 export async function requireAuth() {
   const store = await cookies();
-  return isValidSessionToken(store.get(COOKIE_NAME)?.value);
+  // Accept either cookie name during the HTTP→HTTPS transition window;
+  // prefer the `__Host-` variant when both exist.
+  const token =
+    store.get(COOKIE_NAME_HOST)?.value ?? store.get(COOKIE_NAME_PLAIN)?.value;
+  return isValidSessionToken(token);
 }
 
 export async function setSessionCookie(token: string) {
   const store = await cookies();
-  store.set(COOKIE_NAME, token, {
+  const secure = shouldUseSecureCookie();
+  store.set(activeCookieName(), token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: shouldUseSecureCookie(),
+    secure,
     maxAge: MAX_AGE_SECONDS,
     path: "/",
   });
@@ -59,10 +83,12 @@ export async function setSessionCookie(token: string) {
 
 export async function clearSessionCookie() {
   const store = await cookies();
-  store.delete(COOKIE_NAME);
+  // Clear both variants so a stale plain cookie can't outlive an HTTPS rotation.
+  store.delete(COOKIE_NAME_PLAIN);
+  store.delete(COOKIE_NAME_HOST);
 }
 
-export { COOKIE_NAME };
+export { COOKIE_NAME_PLAIN as COOKIE_NAME };
 
 /* ── MCP Bearer-Auth ─────────────────────────────────────────────── */
 

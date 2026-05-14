@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { RemixError, remixMealItem, replanMealItem } from "@/lib/remix";
 import { appUrl } from "@/lib/redirect";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 const InputSchema = z.object({
   itemId: z.string().min(1),
@@ -22,6 +23,8 @@ function plannerRedirect(req: NextRequest, planId?: string, error?: string, item
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
 
   const form = await req.formData();
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
     return plannerRedirect(req, item.mealPlanId, undefined, item.id);
   } catch (error) {
-    console.error(`${action} failed`, error);
+    console.error(`${action} failed`, error instanceof Error ? error.message : "unknown");
     if (error instanceof RemixError) return plannerRedirect(req, item.mealPlanId, error.message, item.id);
     return plannerRedirect(req, item.mealPlanId, "Aktion fehlgeschlagen", item.id);
   }

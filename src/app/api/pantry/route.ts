@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { appUrl } from "@/lib/redirect";
 import { upsertPantryItem } from "@/lib/pantry";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 /**
  * Fügt einen Vorratseintrag hinzu (oder aktualisiert ihn anhand des
@@ -9,6 +10,8 @@ import { upsertPantryItem } from "@/lib/pantry";
  * Form-Felder: name, quantity (optional), expiresOn (optional, ISO).
  */
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   const form = await req.formData();
   const name = String(form.get("name") || "").trim();

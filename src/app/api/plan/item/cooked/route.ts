@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { recordCookedFromPlanItem } from "@/lib/history";
 import { appUrl } from "@/lib/redirect";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 /**
  * Markiert ein Plan-Item als heute gekocht (eigene Route, weil ein
@@ -10,6 +11,8 @@ import { appUrl } from "@/lib/redirect";
  * und keine LLM-Kosten verursacht).
  */
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   const form = await req.formData();
   const itemId = String(form.get("itemId") || "");

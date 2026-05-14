@@ -202,7 +202,7 @@ export async function syncRecipesFromPaprika(
       fetched += 1;
     } catch (error) {
       failed += 1;
-      console.error("paprika sync: recipe failed", entry.uid, error);
+      console.error("paprika sync: recipe failed", entry.uid, error instanceof Error ? error.message : "unknown");
     }
   });
 

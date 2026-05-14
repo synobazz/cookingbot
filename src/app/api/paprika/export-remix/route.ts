@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { createRecipeInPaprika } from "@/lib/paprika";
 import { appUrl } from "@/lib/redirect";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 function plannerUrl(req: NextRequest, planId: string, itemId: string, params: Record<string, string>) {
   const search = new URLSearchParams({ plan: planId, ...params });
@@ -10,6 +11,8 @@ function plannerUrl(req: NextRequest, planId: string, itemId: string, params: Re
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
 
   const form = await req.formData();
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.redirect(plannerUrl(req, item.mealPlanId, item.id, { exported: "paprika" }), 303);
   } catch (error) {
-    console.error("paprika export failed", error);
+    console.error("paprika export failed", error instanceof Error ? error.message : "unknown");
     return NextResponse.redirect(plannerUrl(req, item.mealPlanId, item.id, { error: "Paprika-Export fehlgeschlagen" }), 303);
   }
 }

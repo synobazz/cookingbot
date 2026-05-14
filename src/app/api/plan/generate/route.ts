@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { createMealPlan, PlannerError, PlannerInputSchema, VALID_DAYS } from "@/lib/planner";
 import { appUrl } from "@/lib/redirect";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 function plannerError(req: NextRequest, message: string, status = 303) {
   return NextResponse.redirect(appUrl(req, `/planner?error=${encodeURIComponent(message)}`), status);
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
 
   try {
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
     const plan = await createMealPlan(parsedInput.data);
     return NextResponse.redirect(appUrl(req, `/planner?plan=${plan.id}`), 303);
   } catch (error) {
-    console.error("plan generation failed", error);
+    console.error("plan generation failed", error instanceof Error ? error.message : "unknown");
     if (error instanceof PlannerError) return plannerError(req, error.message);
     return plannerError(req, "Die KI-Antwort war nicht verwendbar oder der Anbieter ist nicht erreichbar.");
   }
