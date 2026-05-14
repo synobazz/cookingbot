@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { loginToPaprika } from "@/lib/paprika";
+
+export const runtime = "nodejs";
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MiB
@@ -15,8 +19,11 @@ function normalizeImageUrl(value?: string | null) {
   return "";
 }
 
-function isPrivateIp(host: string) {
-  const ipv4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+function isPrivateAddress(address: string) {
+  const normalized = address.toLowerCase();
+  if (normalized.startsWith("::ffff:")) return isPrivateAddress(normalized.slice(7));
+
+  const ipv4 = normalized.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
   if (!ipv4) return false;
   const [, aRaw, bRaw] = ipv4;
   const a = Number(aRaw);
@@ -24,26 +31,55 @@ function isPrivateIp(host: string) {
   return (
     a === 10 ||
     a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
+    (a === 192 && b === 0) ||
+    (a === 198 && (b === 18 || b === 19)) ||
     (a === 169 && b === 254) ||
-    a === 0
+    a === 0 ||
+    a >= 224
   );
 }
 
-function isAllowed(url: string) {
+function isPrivateIpv6(address: string) {
+  const normalized = address.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+  if (normalized.startsWith("::ffff:")) return isPrivateAddress(normalized.slice(7));
+  return (
+    normalized === "::1" ||
+    normalized === "::" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80:")
+  );
+}
+
+function parseAllowedUrl(url: string) {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+  const host = parsed.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost")) return null;
+  if (isPrivateAddress(host) || isPrivateIpv6(host)) return null;
+  return parsed;
+}
+
+async function isAllowed(url: string) {
+  const parsed = parseAllowedUrl(url);
+  if (!parsed) return false;
+  try {
+    const records = await lookup(parsed.hostname, { all: true, verbatim: true });
+    return records.length > 0 && records.every((record) => {
+      if (record.family === 6) return !isPrivateIpv6(record.address);
+      return isIP(record.address) !== 0 && !isPrivateAddress(record.address);
+    });
+  } catch {
     return false;
   }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
-  const host = parsed.hostname.toLowerCase();
-  if (!host || host === "localhost" || host.endsWith(".localhost")) return false;
-  if (host === "::1" || host.startsWith("[")) return false;
-  if (isPrivateIp(host)) return false;
-  return true;
 }
 
 function redirectTarget(currentUrl: string, location: string) {
@@ -67,7 +103,7 @@ async function fetchImage(url: string, token?: string, redirectsLeft = 3): Promi
 
     if ([301, 302, 303, 307, 308].includes(res.status) && redirectsLeft > 0) {
       const nextUrl = redirectTarget(url, res.headers.get("location") || "");
-      if (!nextUrl || !isAllowed(nextUrl)) return res;
+      if (!nextUrl || !(await isAllowed(nextUrl))) return res;
       return fetchImage(nextUrl, token, redirectsLeft - 1);
     }
 
@@ -107,11 +143,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ rec
 
   const candidates = [recipe.photoUrl, recipe.imageUrl, recipe.photoLarge, recipe.photo]
     .map(normalizeImageUrl)
-    .filter(Boolean)
-    .filter(isAllowed);
-  if (!candidates.length) return new NextResponse(null, { status: 404 });
+    .filter(Boolean);
+  const allowedCandidates = [];
+  for (const candidate of candidates) {
+    if (await isAllowed(candidate)) allowedCandidates.push(candidate);
+  }
+  if (!allowedCandidates.length) return new NextResponse(null, { status: 404 });
 
-  for (const url of candidates) {
+  for (const url of allowedCandidates) {
     let upstream: Response;
     try {
       upstream = await fetchImage(url);
