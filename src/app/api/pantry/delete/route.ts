@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { appUrl } from "@/lib/redirect";
 import { deletePantryItem } from "@/lib/pantry";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 /** Löscht einen Pantry-Eintrag (Form-Field `id`). */
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   const form = await req.formData();
   const id = String(form.get("id") || "");

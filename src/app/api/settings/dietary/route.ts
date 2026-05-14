@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { appUrl } from "@/lib/redirect";
 import { DIET_TAGS, type DietTag, setDietaryConstraints } from "@/lib/dietary";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 const VALID = new Set<string>(DIET_TAGS.map((t) => t.value));
 
@@ -12,6 +13,8 @@ const VALID = new Set<string>(DIET_TAGS.map((t) => t.value));
  *   - notes: Freitext mit Allergien/Abneigungen
  */
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   const form = await req.formData();
   const rawTags = form.getAll("tag").map((value) => String(value));

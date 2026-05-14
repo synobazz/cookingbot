@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { syncRecipesFromPaprika, type PaprikaRecipe } from "@/lib/paprika";
 import { appUrl } from "@/lib/redirect";
+import { guardSameOrigin } from "@/lib/same-origin";
 
 const SETTING_LAST_SYNC = "lastPaprikaSync";
 
@@ -34,6 +35,8 @@ function recipeData(recipe: PaprikaRecipe) {
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = guardSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAuth())) return NextResponse.redirect(appUrl(req, "/login"), 303);
   try {
     // Pre-load existing hashes so we can skip unchanged recipes entirely.
