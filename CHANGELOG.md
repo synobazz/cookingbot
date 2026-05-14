@@ -23,6 +23,16 @@ Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 - `/mcp` exportiert explizite 405-Handler für `PUT`/`PATCH`/`HEAD` mit `Allow: GET, POST, DELETE`-Header zur klareren Diagnose von Fehlkonfigurationen.
 
 ### Security
+- **CSRF defense in depth**: jede state-changing POST-Route (Login, Logout, Planner, Shopping, Pantry, Settings, Sync, Paprika-Export, Microsoft-Connect/Disconnect/Export) prüft jetzt zusätzlich zu `SameSite=Lax` den `Origin`-Header (Fallback `Referer`) gegen `APP_BASE_URL`. Cross-Origin-POSTs landen auf `/login?error=csrf`, statt Daten zu mutieren. Neues Helper-Modul `src/lib/same-origin.ts` mit `isSameOrigin`/`guardSameOrigin` plus sechs Vitest-Cases.
+- **`__Host-cookingbot_session`**: das Session-Cookie nutzt auf HTTPS jetzt den `__Host-`-Prefix (kein `Domain`-Attribut zulässig, erzwingt `Secure`+`Path=/`). Im HTTP-Dev fällt der Name auf `cookingbot_session` zurück; `requireAuth` akzeptiert während der Umstellung beide Varianten, `clearSessionCookie` löscht beide.
+- **Konstantzeit-Passwortvergleich**: `verifyPassword` hasht beide Seiten zuerst per SHA-256 und ruft dann `timingSafeEqual` auf. Damit verschwindet der Length-Short-Circuit, der zuvor die Passwortlänge über die Antwortzeit leakte.
+- **Microsoft-OAuth-Start nur per POST**: der `GET`-Export auf `/api/microsoft/connect` wurde entfernt. Das Shopping-Board nutzt jetzt `<form method="post">` statt `<a href>`, sodass externe Seiten den OAuth-State-Cookie nicht mehr per `<img src>` setzen können.
+- **Healthcheck-Detailgrad nach Auth gestaffelt**: anonyme Aufrufe (z. B. Docker `HEALTHCHECK`) bekommen weiterhin `{status, generatedAt}` mit 200/503, vollständiger Report mit Check-Aufschlüsselung erfordert eine authentifizierte Session, `HEALTH_PUBLIC_TOKEN` (Bearer oder `?token=`) oder `HEALTH_DETAILS_PUBLIC=true`.
+- **SSRF-Hardening am Recipe-Image-Proxy**: DNS-Auflösung mit Block für RFC1918, CGNAT (100.64/10), Loopback, Link-Local (169.254), Multicast, sowie IPv6-Loopback/ULA. Timeout 10 s, Body-Limit 10 MiB; `https`-only nach Normalisierung.
+- **`APP_BASE_URL` als Single-Source-of-Truth für Redirects** (`appUrl()`): in Production wird der Host-Header nicht mehr für Redirect-Targets verwendet, das verhindert Host-Header-Injection und Open-Redirects.
+- **`TRUST_PROXY`-Schalter**: XFF-/`X-Real-IP`-Parsing im Login-Rate-Limiter ist nur noch aktiv, wenn der Reverse Proxy explizit als vertrauenswürdig markiert wurde. Ohne den Schalter spooft kein Angreifer mehr seine Quell-IP über Header.
+- **Error-Logs entkernt**: `planner/generate`, `plan/item`, `paprika/export-remix` und der Paprika-Sync loggen nur noch `error.message` statt das ganze Error-Objekt, damit OpenAI-/Paprika-SDK-Requestbodies nicht ins Container-Log lecken können.
+- **`MCP_BEARER_TOKEN` mit Mindestlänge**: weniger als 32 Zeichen verweigern in Production den Start.
 - `DATABASE_URL` wird auf der Einstellungsseite maskiert (Schema, User, Host, DB-Name sichtbar – Passwort entfernt), sodass Screenshots oder Screen-Sharing keine Zugangsdaten preisgeben.
 - MCP-Bearer-Token-Vergleich nutzt `crypto.timingSafeEqual` (konstantzeit) gegen Timing-Side-Channels.
 
