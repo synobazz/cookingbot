@@ -7,6 +7,20 @@ Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unreleased]
 
 ### Added
+- **iOS-PWA-Polish**: dediziertes `apple-touch-icon.png` (180×180), zusätzliche PNG-Icons in 192/512 für Android/Chrome, sieben gerätespezifische Apple-Splash-Screens (iPhone 16/16-Pro-Max/14-Plus/XS-Max/13-mini/SE und iPad Pro) mit korrekten Media-Queries. Beim Öffnen von "Zum Home-Bildschirm" zeigt iOS jetzt einen Paper-Tone-Splash statt eines weißen Frames.
+- **`IosInstallHint`-Banner**: einmaliger, dismissbarer Bottom-Banner, der iOS-Safari-Nutzern erklärt, wie sie die App per Share-Sheet auf den Home-Bildschirm legen. Erscheint nur auf iOS, nur außerhalb des Standalone-Modus, und merkt sich den Dismiss in `localStorage`.
+- **`format-detection: telephone=no`** in den Layout-Metadaten, damit iOS Safari deutsche Zutatenangaben ("250g", "2 EL") nicht mehr in klickbare `tel:`-Links umwandelt.
+- **Dark-mode-aware `theme-color`**: zwei `<meta name="theme-color">`-Varianten (Light/Dark) sorgen für eine korrekt eingefärbte Statusbar/Address-Bar auch im System-Darkmode.
+
+### Changed
+- **iOS-Touch-Verhalten**: globaler `-webkit-tap-highlight-color: transparent` + `touch-action: manipulation` auf Buttons, Links, Nav-Items, Tabs, Checkboxes und `<summary>`. Der 300-ms-Tap-Delay und das Double-Tap-To-Zoom auf interaktiven Elementen verschwinden, ohne Pinch-Zoom auf Texten zu blockieren.
+- **iOS-Zoom-Schutz für Touch-Geräte**: Inputs, Selects und Textareas erzwingen auf `(hover: none) and (pointer: coarse)`-Devices mindestens 16px Schriftgröße — verhindert das nervige automatische Reinzoomen beim Tap in ein Feld.
+- **Body-Overscroll**: Bounce-Effekt auf der gesamten Seite deaktiviert (`overscroll-behavior-y: none`), in scrollbaren Listen (Shopping/Plan/Recipes/Modal) bewusst wieder als `contain` erlaubt — eckig wie eine native App, aber mit Momentum in den Listen.
+- **Web-App-Manifest**: zusätzlich zu den SVG-Icons jetzt PNG-Versionen in 192/512 (any) und 512 (maskable), plus `categories: ["food", "lifestyle", "productivity"]`. Macht den App-Installer auf Android/Chrome deutlich vorhersagbarer.
+- **Viewport**: `maximumScale: 5` + `userScalable: true` explizit gesetzt, damit Pinch-Zoom in der Küche mit fettigen Fingern weiter funktioniert.
+- **Service-Worker auf `v2`**: alte Caches werden automatisch aufgeräumt, und die PNG-Icons + Apple-Touch-Icon werden mit der App-Shell vorgecached, sodass die Tile auf dem Homescreen sofort sauber dargestellt wird.
+
+### Added
 - **MCP-Server unter `/mcp`** — Cookingbot exponiert zehn Tools (`getMealForDay`, `getMealPlan`, `searchRecipes`, `getShoppingList`, `findRecipeByCraving`, `setMealForDay`, `replaceMealForDay`, `createRecipeFromIngredients`, `undoLastMealChange`, `showRecentMcpActivity`) plus `ping` für externe LLM-Clients wie Claude Desktop. Authentifizierung per statischem Bearer-Token (`MCP_BEARER_TOKEN`); ohne gesetztes Token antwortet der Endpoint mit HTTP 503. Alle Tools liefern strukturierte Ergebnisse mit stabilen Error-Codes (`MULTIPLE_MATCHES`, `LLM_TIMEOUT`, `RECIPE_EXCLUDED`, …) und führen MCP-Annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`), sodass Claude bei schreibenden Tools standardmäßig vor jeder Aktion nachfragt.
 - **Audit-Ringbuffer für MCP-Tool-Aufrufe** — die letzten 50 Calls werden in `AppSetting["mcpAuditLog"]` gespeichert und über das neue Tool `showRecentMcpActivity` abrufbar (Tool-Name, Dauer, ok-Flag, Error-Code, gekürzte Args).
 - **Recipe-Origin** (`origin`-Feld auf `Recipe`) zur Unterscheidung von Paprika-Sync, lokalen LLM-Generaten (`origin: local-llm`) und manuell angelegten Rezepten. `paprikaUid` ist jetzt nullable; der Paprika-Sync filtert null-paprikaUid-Rezepte aus dem Update-Pfad und überschreibt damit lokale Rezepte nicht mehr.

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#f6f1e7"/>
+  <g transform="translate(312 256)">
+    <rect width="400" height="400" rx="80" fill="#1f3a2e"/>
+    <text x="200" y="305" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="260" font-style="italic" fill="#f6f1e7">c</text>
+  </g>
+  <text x="512" y="780" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="64" font-style="italic" fill="#1a1612" font-weight="400">Cookingbot</text>
+</svg>

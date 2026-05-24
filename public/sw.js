@@ -17,12 +17,18 @@
  * jede Zeile lässt sich im DevTools-Debugger nachvollziehen.
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `cookingbot-shell-${CACHE_VERSION}`;
 const PAGE_CACHE = `cookingbot-pages-${CACHE_VERSION}`;
 const ASSET_CACHE = `cookingbot-assets-${CACHE_VERSION}`;
 
-const SHELL_URLS = ["/manifest.webmanifest", "/icon.svg"];
+const SHELL_URLS = [
+  "/manifest.webmanifest",
+  "/icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -62,7 +68,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Assets (Fonts/SVG/CSS/JS): cache-first
+  // Assets (Fonts/SVG/CSS/JS/Splash-PNGs): cache-first
   if (/\.(svg|css|js|woff2?|webmanifest|png|jpg|jpeg|webp)$/i.test(url.pathname)) {
     event.respondWith(handleAsset(req));
   }
