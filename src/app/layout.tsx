@@ -9,6 +9,7 @@ import { MobileTabbar } from "./_components/mobile-tabbar";
 import { ToastProvider } from "./_components/toast";
 import { ServiceWorkerRegister } from "./_components/sw-register";
 import { IosInstallHint } from "./_components/ios-install-hint";
+import { ScrollChrome } from "./_components/scroll-chrome";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -140,6 +141,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="grain" aria-hidden />
           {authed ? (
             <div className="app">
+              <ScrollChrome />
               <Sidebar counts={counts} />
               <main className="main">
                 <Topbar />
