@@ -445,7 +445,7 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .plan-tab { padding: 7px 13px; border-radius: 8px; border: 0; background: transparent; cursor: pointer; font-size: 0.82rem; color: var(--muted); font-weight: 600; }
 .plan-tab.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow-sm); }
 
-.plan-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.plan-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 24px; }
 .plan-row:last-child { border-bottom: 0; }
 .plan-row .plan-day { display: flex; flex-direction: column; gap: 2px; }
 .plan-row .plan-day b { font-family: var(--font-fraunces), serif; font-weight: 500; font-size: 1.05rem; }
@@ -696,6 +696,7 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
     gap: 8px 12px;
     align-items: start;
     padding: 14px 0;
+    scroll-margin-top: 82px;
   }
   .plan-row .plan-day {
     grid-row: 1 / 3;

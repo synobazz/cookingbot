@@ -159,7 +159,7 @@ export default async function PlannerPage({
                       directions: item.instructions,
                     };
                 return (
-                  <div className="plan-row" key={item.id}>
+                  <div className="plan-row" id={`meal-${item.id}`} key={item.id}>
                     <div className="plan-day">
                       <b>{short}</b>
                       <span>{dateLabel}</span>
