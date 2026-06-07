@@ -32,6 +32,20 @@ describe("parseIngredient", () => {
     expect(r.unit).toBe("EL");
   });
 
+  it("recognizes abbreviated German teaspoon as TL", () => {
+    const r = parseIngredient("1/2 Teel. süßes Paprikapulver");
+    expect(r.quantity).toBe(0.5);
+    expect(r.unit).toBe("TL");
+    expect(r.name).toBe("Paprikapulver");
+  });
+
+  it("recognizes garlic cloves as a unit", () => {
+    const r = parseIngredient("1 Zehe Knoblauch");
+    expect(r.quantity).toBe(1);
+    expect(r.unit).toBe("Zehe");
+    expect(r.name).toBe("Knoblauch");
+  });
+
   it("treats unitless count as Stk via empty unit", () => {
     const r = parseIngredient("2 Zwiebeln");
     expect(r.quantity).toBe(2);
@@ -57,6 +71,19 @@ describe("parseIngredient", () => {
   it("strips comma-suffix preparation hints", () => {
     const r = parseIngredient("1 Zwiebel, in Würfeln");
     expect(r.name).toBe("Zwiebel");
+  });
+
+  it("strips Paprika-style plural markers and parenthetical preparation hints", () => {
+    expect(parseIngredient("2 Tomate(n)").name).toBe("Tomate");
+    expect(parseIngredient("3 Paprikaschote(n)").name).toBe("Paprika");
+    expect(parseIngredient("100 g Paprika (in Streifen)").name).toBe("Paprika");
+    expect(parseIngredient("Frisches Brot (zum Servieren)").name).toBe("Frisches Brot");
+  });
+
+  it("strips serving and salad helper suffixes", () => {
+    expect(parseIngredient("Gurke für einen einfachen Beilagensalat").name).toBe("Gurke");
+    expect(parseIngredient("Joghurt oder Kräuterquark zum Servieren optional").name).toBe("Joghurt oder Kräuterquark");
+    expect(parseIngredient("Salz nach Geschmack").name).toBe("Salz");
   });
 
   it("parses mixed fraction '1 1/2'", () => {
@@ -97,6 +124,12 @@ describe("isStapleKey", () => {
 
   it("does not flag tomato as staple", () => {
     const r = parseIngredient("200 g Tomaten");
+    expect(isStapleKey(r.key)).toBe(false);
+  });
+
+  it("does not flag fresh paprika as staple just because paprika powder is", () => {
+    const r = parseIngredient("2 Paprika");
+    expect(r.key).toBe("paprika");
     expect(isStapleKey(r.key)).toBe(false);
   });
 
@@ -181,13 +214,25 @@ describe("aggregateIngredients", () => {
     expect(result.items[0].name).toBe("Tomaten");
   });
 
-  it("preserves unparsed quantity hints", () => {
+  it("does not show unparsed free-text lines as quantities", () => {
     const result = aggregateIngredients([
       { line: "Salz nach Geschmack", source: "Pasta" },
     ]);
     // Salz ist Staple → in staples
     expect(result.staples).toHaveLength(1);
-    expect(result.staples[0].quantity.toLowerCase()).toContain("salz");
+    expect(result.staples[0].name).toBe("Salz");
+    expect(result.staples[0].quantity).toBe("");
+  });
+
+  it("merges cleaned shopping names from Paprika recipes", () => {
+    const result = aggregateIngredients([
+      { line: "3 Paprikaschote(n)", source: "A" },
+      { line: "2 Rote Paprika", source: "B" },
+      { line: "100 g Paprika (in Streifen)", source: "C" },
+    ]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe("Paprika");
+    expect(result.items[0].quantity).toBe("5 Stk + 100 g");
   });
 
   it("ignores empty keys", () => {

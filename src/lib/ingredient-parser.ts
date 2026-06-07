@@ -92,11 +92,14 @@ const UNIT_ALIASES: Record<string, string> = {
   essloffel: "EL",
   tl: "TL",
   tee: "TL",
+  teel: "TL",
   teelöffel: "TL",
   teeloffel: "TL",
   stk: "Stk",
   stück: "Stk",
   stueck: "Stk",
+  zehe: "Zehe",
+  zehen: "Zehe",
   prise: "Prise",
   prisen: "Prise",
   bund: "Bund",
@@ -158,6 +161,18 @@ const LEADING_DESCRIPTORS = new Set([
   "reifen",
   "rote",
   "roten",
+  "süß",
+  "suss",
+  "suess",
+  "süße",
+  "susse",
+  "suesse",
+  "süßes",
+  "susses",
+  "suesses",
+  "süßen",
+  "sussen",
+  "suessen",
   "gelbe",
   "gelben",
   "grune",
@@ -170,8 +185,15 @@ const LEADING_DESCRIPTORS = new Set([
   "weißen",
 ]);
 
+const CANONICAL_NAME_ALIASES: Record<string, string> = {
+  paprikaschot: "Paprika",
+  paprikaschote: "Paprika",
+  salatgurk: "Gurke",
+  salatgurke: "Gurke",
+};
+
 function normalizeToken(token: string): string {
-  return token.toLowerCase().replace(/\.$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return token.toLowerCase().replace(/\.$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss");
 }
 
 /** Konvertiert "1/2", "1,5", "2.5" → number. */
@@ -202,6 +224,32 @@ function stripLeadingDescriptors(tokens: string[]): string[] {
     cursor += 1;
   }
   return tokens.slice(cursor);
+}
+
+function stripNameNoise(value: string): string {
+  return value
+    .replace(/\((?:n|s|en)\)/gi, "")
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/\s+\boptional\b.*$/i, "")
+    .replace(/\s+\bzum\s+servieren\b.*$/i, "")
+    .replace(/\s+\bnach\s+geschmack\b.*$/i, "")
+    .replace(/\s+\bin\s+(?:streifen|w[üu]rfeln|scheiben|st[üu]cke?n?)\b.*$/i, "")
+    .replace(/\s+\bf[üu]r\s+(?:einen?|eine|den|die|das)?\s*(?:einfachen?\s+)?(?:beilagen)?salat\b.*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function canonicalizeName(nameRaw: string): { name: string; key: string } {
+  const cleaned = stripNameNoise(nameRaw);
+  const key = normalizePantryKey(cleaned);
+  const alias = CANONICAL_NAME_ALIASES[key];
+  if (!alias) {
+    return {
+      name: cleaned.charAt(0).toUpperCase() + cleaned.slice(1),
+      key,
+    };
+  }
+  return { name: alias, key: normalizePantryKey(alias) };
 }
 
 /**
@@ -254,9 +302,9 @@ export function parseIngredient(line: string): ParsedIngredient {
   }
 
   const nameTokens = stripLeadingDescriptors(tokens.slice(cursor));
-  const nameRaw = nameTokens.join(" ").trim() || tokens.slice(cursor).join(" ").trim() || head;
-  const name = nameRaw.charAt(0).toUpperCase() + nameRaw.slice(1);
-  const key = normalizePantryKey(nameRaw);
+  const fallbackName = stripNameNoise(head);
+  const nameRaw = nameTokens.join(" ").trim() || tokens.slice(cursor).join(" ").trim() || fallbackName;
+  const { name, key } = canonicalizeName(nameRaw);
 
   return { key, name, quantity, unit, original };
 }
@@ -355,13 +403,6 @@ export function aggregateIngredients(
       const canonical = canonicalQuantity(parsed.quantity, parsed.unit);
       const prev = bucket.unitSums.get(canonical.unit) ?? 0;
       bucket.unitSums.set(canonical.unit, prev + canonical.quantity);
-    } else {
-      // Zeile ohne erkannte Menge → Original als Hinweis bewahren
-      // (z.B. "Salz nach Geschmack", "etwas Olivenöl").
-      const tail = parsed.original.trim();
-      if (tail && !bucket.unparsedQuantities.includes(tail)) {
-        bucket.unparsedQuantities.push(tail);
-      }
     }
     bucket.sources.add(entry.source);
     target.set(parsed.key, bucket);
@@ -381,7 +422,7 @@ export function isStapleKey(key: string): boolean {
   if (!key) return false;
   if (STAPLE_KEYS.has(key)) return true;
   for (const staple of STAPLE_KEYS) {
-    if (key.startsWith(staple) || staple.startsWith(key)) return true;
+    if (key.startsWith(staple)) return true;
   }
   return false;
 }
