@@ -109,6 +109,71 @@ const UNIT_ALIASES: Record<string, string> = {
   glas: "Glas",
 };
 
+/** Mengenwörter, die in Rezepten häufig statt Ziffern auftauchen. */
+const NUMBER_WORDS: Record<string, number> = {
+  ein: 1,
+  eine: 1,
+  einen: 1,
+  einem: 1,
+  einer: 1,
+  eines: 1,
+  eins: 1,
+  zwei: 2,
+  drei: 3,
+  vier: 4,
+  fünf: 5,
+  funf: 5,
+  sechs: 6,
+  sieben: 7,
+  acht: 8,
+  neun: 9,
+  zehn: 10,
+};
+
+const APPROX_PREFIXES = new Set(["ca", "ca.", "circa", "etwa", "ungefähr", "ungefahr"]);
+
+const LEADING_DESCRIPTORS = new Set([
+  "klein",
+  "kleine",
+  "kleinen",
+  "kleiner",
+  "kleines",
+  "mittelgroß",
+  "mittelgross",
+  "mittelgroße",
+  "mittelgrosse",
+  "mittelgroßen",
+  "mittelgrossen",
+  "groß",
+  "gross",
+  "große",
+  "grosse",
+  "großen",
+  "grossen",
+  "frisch",
+  "frische",
+  "frischen",
+  "reif",
+  "reife",
+  "reifen",
+  "rote",
+  "roten",
+  "gelbe",
+  "gelben",
+  "grune",
+  "grüne",
+  "grunen",
+  "grünen",
+  "weisse",
+  "weiße",
+  "weissen",
+  "weißen",
+]);
+
+function normalizeToken(token: string): string {
+  return token.toLowerCase().replace(/\.$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 /** Konvertiert "1/2", "1,5", "2.5" → number. */
 function parseNumber(token: string): number | null {
   const t = token.replace(",", ".");
@@ -123,6 +188,20 @@ function parseNumber(token: string): number | null {
   }
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
+}
+
+function parseQuantityToken(token: string): number | null {
+  const numeric = parseNumber(token);
+  if (numeric !== null) return numeric;
+  return NUMBER_WORDS[normalizeToken(token)] ?? null;
+}
+
+function stripLeadingDescriptors(tokens: string[]): string[] {
+  let cursor = 0;
+  while (cursor < tokens.length && LEADING_DESCRIPTORS.has(normalizeToken(tokens[cursor]))) {
+    cursor += 1;
+  }
+  return tokens.slice(cursor);
 }
 
 /**
@@ -142,17 +221,21 @@ export function parseIngredient(line: string): ParsedIngredient {
   let quantity: number | null = null;
   let unit = "";
 
-  if (tokens.length > 0) {
-    const q = parseNumber(tokens[0]);
+  while (cursor < tokens.length && APPROX_PREFIXES.has(normalizeToken(tokens[cursor]))) {
+    cursor += 1;
+  }
+
+  if (cursor < tokens.length) {
+    const q = parseQuantityToken(tokens[cursor]);
     if (q !== null) {
       quantity = q;
-      cursor = 1;
+      cursor += 1;
       // 2-Token-Bruch: "1 1/2"
-      if (tokens.length > 1 && /^\d+\/\d+$/.test(tokens[1])) {
-        const second = parseNumber(tokens[1]);
+      if (tokens.length > cursor && /^\d+\/\d+$/.test(tokens[cursor])) {
+        const second = parseNumber(tokens[cursor]);
         if (second !== null) {
           quantity += second;
-          cursor = 2;
+          cursor += 1;
         }
       }
     }
@@ -160,7 +243,7 @@ export function parseIngredient(line: string): ParsedIngredient {
 
   if (cursor < tokens.length) {
     const candidate = tokens[cursor].toLowerCase().replace(/\.$/, "");
-    const aliasKey = candidate.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const aliasKey = normalizeToken(tokens[cursor]);
     if (UNIT_ALIASES[candidate]) {
       unit = UNIT_ALIASES[candidate];
       cursor += 1;
@@ -170,7 +253,8 @@ export function parseIngredient(line: string): ParsedIngredient {
     }
   }
 
-  const nameRaw = tokens.slice(cursor).join(" ").trim() || head;
+  const nameTokens = stripLeadingDescriptors(tokens.slice(cursor));
+  const nameRaw = nameTokens.join(" ").trim() || tokens.slice(cursor).join(" ").trim() || head;
   const name = nameRaw.charAt(0).toUpperCase() + nameRaw.slice(1);
   const key = normalizePantryKey(nameRaw);
 
@@ -205,11 +289,28 @@ type AggregatorBucket = {
   sources: Set<string>;
 };
 
+function canonicalQuantity(quantity: number, unit: string): { quantity: number; unit: string } {
+  if (unit === "kg") return { quantity: quantity * 1000, unit: "g" };
+  if (unit === "l") return { quantity: quantity * 1000, unit: "ml" };
+  return { quantity, unit };
+}
+
+function formatNumber(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(".", ",");
+}
+
+function formatQuantity(sum: number, unit: string): string {
+  if (unit === "g" && sum >= 1000) return `${formatNumber(sum / 1000)} kg`;
+  if (unit === "ml" && sum >= 1000) return `${formatNumber(sum / 1000)} l`;
+  if (!unit) return `${formatNumber(sum)} Stk`;
+  return `${formatNumber(sum)} ${unit}`;
+}
+
 function formatBucket(bucket: AggregatorBucket): AggregatedItem {
   const parts: string[] = [];
   for (const [unit, sum] of bucket.unitSums) {
-    const rounded = Math.round(sum * 100) / 100;
-    parts.push(unit ? `${rounded} ${unit}` : String(rounded));
+    parts.push(formatQuantity(sum, unit));
   }
   if (bucket.unparsedQuantities.length > 0) {
     parts.push(...bucket.unparsedQuantities);
@@ -251,8 +352,9 @@ export function aggregateIngredients(
       sources: new Set<string>(),
     };
     if (parsed.quantity !== null) {
-      const prev = bucket.unitSums.get(parsed.unit) ?? 0;
-      bucket.unitSums.set(parsed.unit, prev + parsed.quantity);
+      const canonical = canonicalQuantity(parsed.quantity, parsed.unit);
+      const prev = bucket.unitSums.get(canonical.unit) ?? 0;
+      bucket.unitSums.set(canonical.unit, prev + canonical.quantity);
     } else {
       // Zeile ohne erkannte Menge → Original als Hinweis bewahren
       // (z.B. "Salz nach Geschmack", "etwas Olivenöl").

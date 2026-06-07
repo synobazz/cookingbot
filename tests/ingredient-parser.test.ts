@@ -39,6 +39,21 @@ describe("parseIngredient", () => {
     expect(r.name).toBe("Zwiebeln");
   });
 
+  it("parses German articles as quantity one", () => {
+    const r = parseIngredient("eine Zwiebel");
+    expect(r.quantity).toBe(1);
+    expect(r.unit).toBe("");
+    expect(r.name).toBe("Zwiebel");
+    expect(r.key).toBe("zwiebel");
+  });
+
+  it("parses approximate prefixes and leading descriptors", () => {
+    const r = parseIngredient("ca. eine große Zwiebel, gewürfelt");
+    expect(r.quantity).toBe(1);
+    expect(r.name).toBe("Zwiebel");
+    expect(r.key).toBe("zwiebel");
+  });
+
   it("strips comma-suffix preparation hints", () => {
     const r = parseIngredient("1 Zwiebel, in Würfeln");
     expect(r.name).toBe("Zwiebel");
@@ -108,7 +123,36 @@ describe("aggregateIngredients", () => {
     ]);
     expect(result.items).toHaveLength(1);
     // Reihenfolge der unit-Map ist Insertion-Order: erst "g", dann ""
-    expect(result.items[0].quantity).toBe("200 g + 2");
+    expect(result.items[0].quantity).toBe("200 g + 2 Stk");
+  });
+
+  it("merges article quantities with numeric quantities", () => {
+    const result = aggregateIngredients([
+      { line: "eine Zwiebel", source: "A" },
+      { line: "2 Zwiebeln", source: "B" },
+    ]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe("Zwiebel");
+    expect(result.items[0].quantity).toBe("3 Stk");
+    expect(result.items[0].sources).toEqual(["A", "B"]);
+  });
+
+  it("converts kg and g safely before summing", () => {
+    const result = aggregateIngredients([
+      { line: "500 g Kartoffeln", source: "A" },
+      { line: "1 kg Kartoffeln", source: "B" },
+    ]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].quantity).toBe("1,5 kg");
+  });
+
+  it("converts l and ml safely before summing", () => {
+    const result = aggregateIngredients([
+      { line: "500 ml Milch", source: "A" },
+      { line: "1 l Milch", source: "B" },
+    ]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].quantity).toBe("1,5 l");
   });
 
   it("buckets staples separately", () => {
