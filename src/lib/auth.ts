@@ -34,8 +34,20 @@ function safeEqual(a: string, b: string) {
   return timingSafeEqual(left, right);
 }
 
+/**
+ * Kurzer, nicht umkehrbarer Fingerprint des Admin-Passworts. Fließt in die
+ * Session-Signatur ein, damit ein Passwortwechsel alle Sessions invalidiert.
+ * 16 Hex-Zeichen reichen: Der Wert ist kein Geheimnis-Ersatz, nur ein
+ * Rotations-Anker; die Vertraulichkeit kommt weiterhin aus dem HMAC-Secret.
+ */
+function passwordFingerprint(): string {
+  return createHash("sha256").update(adminPassword()).digest("hex").slice(0, 16);
+}
+
 function sign(payload: string) {
-  return createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+  return createHmac("sha256", sessionSecret())
+    .update(`${payload}.${passwordFingerprint()}`)
+    .digest("base64url");
 }
 
 export function verifyPassword(password: string) {
@@ -62,10 +74,11 @@ export function isValidSessionToken(token?: string) {
 
 export async function requireAuth() {
   const store = await cookies();
-  // Accept either cookie name during the HTTP→HTTPS transition window;
-  // prefer the `__Host-` variant when both exist.
-  const token =
-    store.get(COOKIE_NAME_HOST)?.value ?? store.get(COOKIE_NAME_PLAIN)?.value;
+  // In secure mode only accept the `__Host-` cookie. On plain HTTP
+  // development setups, keep the unprefixed fallback so login still works.
+  const token = shouldUseSecureCookie()
+    ? store.get(COOKIE_NAME_HOST)?.value
+    : (store.get(COOKIE_NAME_HOST)?.value ?? store.get(COOKIE_NAME_PLAIN)?.value);
   return isValidSessionToken(token);
 }
 

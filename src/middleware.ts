@@ -8,6 +8,10 @@
  * (z. B. lokale Entwicklung über HTTPS-Tunnel) ohne weitere
  * Konfiguration sicher ist.
  *
+ * Diese Middleware ist die einzige Quelle für Security-Header;
+ * `next.config.ts` setzt bewusst keine Header mehr, damit Browser keine
+ * widersprüchlichen Content-Security-Policies kombinieren.
+ *
  * Bewusst NICHT gesetzt:
  *   - `Strict-Transport-Security`: gehört auf den Reverse Proxy, der
  *     entscheidet, ob HTTPS terminiert ist und welcher max-age sinnvoll
@@ -35,9 +39,9 @@ import type { NextRequest } from "next/server";
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
-  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",

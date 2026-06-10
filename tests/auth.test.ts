@@ -26,6 +26,18 @@ describe("session token", () => {
     const [head, mac] = token.split(".");
     expect(isValidSessionToken(`${head}xx.${mac}`)).toBe(false);
   });
+
+  it("invalidates existing tokens when the admin password changes", async () => {
+    const { createSessionToken, isValidSessionToken } = await import("../src/lib/auth");
+    process.env.APP_ADMIN_PASSWORD = "test-password-1234567";
+    const token = createSessionToken();
+
+    process.env.APP_ADMIN_PASSWORD = "changed-test-password-1234567";
+    expect(isValidSessionToken(token)).toBe(false);
+
+    process.env.APP_ADMIN_PASSWORD = "test-password-1234567";
+    expect(isValidSessionToken(token)).toBe(true);
+  });
 });
 
 describe("verifyPassword", () => {

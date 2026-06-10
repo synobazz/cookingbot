@@ -17,7 +17,8 @@ Sie ist bewusst ausführlich gehalten und richtet sich an die Erstinstallation a
 7. [Paprika-Sync aktivieren](#7-paprika-sync-aktivieren)
 8. [MCP-Server an Claude Desktop anbinden](#8-mcp-server-an-claude-desktop-anbinden)
 9. [Backups und Updates](#9-backups-und-updates)
-10. [Troubleshooting](#10-troubleshooting)
+10. [Sicherheits-Hinweise für den Betrieb](#10-sicherheits-hinweise-für-den-betrieb)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
@@ -256,7 +257,15 @@ Major-Updates (z. B. 0.2.x → 0.3.x) erst lokal/in einem Staging testen, falls 
 
 ---
 
-## 10. Troubleshooting
+## 10. Sicherheits-Hinweise für den Betrieb
+
+- **`TRUST_PROXY=true` setzen, sobald ein Reverse Proxy davor hängt.** Ohne dieses Flag teilen sich alle externen Clients einen Rate-Limit-Bucket (`local`). Das verhindert zwar Header-Spoofing, aber ein Internet-Bot kann mit 8 falschen Login-Versuchen oder 50 falschen MCP-Tokens den Bucket füllen und damit auch legitime Nutzer 15 Minuten aussperren. Mit `TRUST_PROXY=true` und korrekt gesetztem `X-Forwarded-For` limitiert die App pro Client-IP.
+- **MCP-Endpoint nur exponieren, wenn nötig.** Wenn Claude/ChatGPT-Anbindung nicht gebraucht wird, `MCP_BEARER_TOKEN` leer lassen; `/mcp` antwortet dann mit 503. Wenn MCP gebraucht wird: Token mit `openssl rand -base64 48` erzeugen und den Pfad `/mcp` im Reverse Proxy idealerweise zusätzlich per IP-Allowlist schützen.
+- **Secrets bewusst rotieren.** Ein Wechsel von `APP_ADMIN_PASSWORD` meldet alle aktiven Sessions ab. Eine Rotation von `APP_SESSION_SECRET` invalidiert Sessions und die verschlüsselten Microsoft-Tokens; Microsoft muss danach neu verbunden werden.
+
+---
+
+## 11. Troubleshooting
 
 ### Container startet nicht
 
@@ -294,8 +303,8 @@ Eine kurze Referenz aller relevanten Variablen für den Synology-Stack:
 | Variable | Pflicht | Default | Bedeutung |
 | --- | --- | --- | --- |
 | `APP_BASE_URL` | ja | — | Externe Basis-URL inkl. Schema, z. B. `https://cookingbot.example.de`. |
-| `APP_SESSION_SECRET` | ja | — | Session-Cookie-Signing-Key. Mindestens 32 Zeichen zufällig. |
-| `APP_ADMIN_PASSWORD` | ja | — | Erst-Login-Passwort. Nach erstem Login in Settings ändern. |
+| `APP_SESSION_SECRET` | ja | — | Session-Cookie-Signing-Key. Mindestens 32 Zeichen zufällig. Rotation invalidiert Sessions und verschlüsselte Microsoft-Tokens. |
+| `APP_ADMIN_PASSWORD` | ja | — | Erst-Login-Passwort. Nach erstem Login in Settings ändern. Ein Wechsel meldet alle aktiven Sessions ab. |
 | `DATABASE_URL` | nein | `file:/data/cookingbot.db` | Compose setzt das automatisch. |
 | `OPENAI_API_KEY` | ja | — | OpenAI-Token mit Zugriff auf das gewählte Modell. |
 | `OPENAI_PLANNER_MODEL` | nein | `gpt-5.4-mini` | Modell für Wochenplan-Generierung. |

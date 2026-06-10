@@ -19,7 +19,7 @@ function tokenMatches(presented: string, expected: string) {
  *     für Docker's HEALTHCHECK und einen Uptime-Pinger, ohne irgendwelche
  *     Service-Details preiszugeben.
  *   - Authentifizierter Browser-Aufruf, korrektes `HEALTH_PUBLIC_TOKEN`
- *     (Bearer oder `?token=`), oder `HEALTH_DETAILS_PUBLIC=true`
+ *     per Bearer-Header, oder `HEALTH_DETAILS_PUBLIC=true`
  *     → voller Report mit Check-Aufschlüsselung.
  */
 export async function GET(req: NextRequest) {
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (publicToken) {
     const header = req.headers.get("authorization") || "";
     const bearerMatch = /^Bearer\s+(.+)$/i.exec(header);
-    const presented = bearerMatch?.[1]?.trim() || req.nextUrl.searchParams.get("token") || "";
+    const presented = bearerMatch?.[1]?.trim() || "";
     if (presented && tokenMatches(presented, publicToken)) {
       tokenOk = true;
     }

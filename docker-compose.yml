@@ -4,7 +4,14 @@ services:
     container_name: cookingbot
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      # An localhost binden: Zugriff nur über den Reverse Proxy auf demselben Host.
+      # Wenn der Proxy auf einem anderen Gerät läuft, stattdessen "3000:3000" verwenden
+      # und den Zugriff per Firewall auf die Proxy-IP einschränken.
+      - "127.0.0.1:3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       APP_BASE_URL: ${APP_BASE_URL:?Set APP_BASE_URL in Portainer stack environment variables}
       APP_SESSION_SECRET: ${APP_SESSION_SECRET:?Set APP_SESSION_SECRET in Portainer stack environment variables}

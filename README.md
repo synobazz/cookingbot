@@ -213,8 +213,8 @@ MCP_BEARER_TOKEN=
 | Variable | Pflicht | Beispiel | Beschreibung |
 |---|---:|---|---|
 | `APP_BASE_URL` | empfohlen / für Microsoft Pflicht | `https://cookingbot.example.com` | Öffentliche oder lokale Basis-URL der App. Wird für absolute Redirects und Microsoft OAuth genutzt. Muss exakt zur verwendeten URL passen. |
-| `APP_SESSION_SECRET` | Production: ja | zufälliger 32+ Zeichen Wert | Signiert Session-Cookies. In Production darf kein Default/kurzer Wert verwendet werden. |
-| `APP_ADMIN_PASSWORD` | Production: ja | langes Passwort | Login-Passwort. In Production mindestens 12 Zeichen und nicht `change-me`. |
+| `APP_SESSION_SECRET` | Production: ja | zufälliger 32+ Zeichen Wert | Signiert Session-Cookies. In Production darf kein Default/kurzer Wert verwendet werden. Eine Rotation invalidiert Sessions und verschlüsselte Microsoft-Tokens; Microsoft muss danach neu verbunden werden. |
+| `APP_ADMIN_PASSWORD` | Production: ja | langes Passwort | Login-Passwort. In Production mindestens 12 Zeichen und nicht `change-me`. Ein Wechsel meldet alle aktiven Sessions ab. |
 | `TRUST_PROXY` | nein | `true` | Nur setzen, wenn cookingbot hinter einem vertrauenswürdigen Reverse Proxy läuft, der `X-Forwarded-For` korrekt setzt. Sonst leer lassen, damit Rate-Limiting nicht spoofbar wird. |
 
 ### Datenbank
