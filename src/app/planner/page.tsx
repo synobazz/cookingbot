@@ -5,7 +5,7 @@ import { de } from "date-fns/locale";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { dayLabel, defaultDays as defaultDayKeys } from "@/lib/planning";
-import { CartIcon, CheckIcon, DownloadIcon } from "../_components/icons";
+import { CartIcon, CheckIcon, DownloadIcon, TrashIcon } from "../_components/icons";
 import { RecipeModal } from "../_components/recipe-modal";
 import { PendingForm, PendingButton } from "../_components/pending-form";
 import { PlannerForm } from "./planner-form";
@@ -209,6 +209,22 @@ export default async function PlannerPage({
                         <input type="hidden" name="itemId" value={item.id} />
                         <PendingButton className="btn ghost sm" type="submit">
                           <CheckIcon /> Gekocht
+                        </PendingButton>
+                      </PendingForm>
+                      <PendingForm
+                        action="/api/plan/item"
+                        method="post"
+                        pendingMessage="Tag wird gelöscht…"
+                      >
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <input type="hidden" name="action" value="delete" />
+                        <PendingButton
+                          className="btn ghost sm"
+                          type="submit"
+                          aria-label={`${dayLabel(item.dayName)} aus dem Plan löschen`}
+                          title={`${dayLabel(item.dayName)} löschen`}
+                        >
+                          <TrashIcon /> Löschen
                         </PendingButton>
                       </PendingForm>
                       <RecipeModal

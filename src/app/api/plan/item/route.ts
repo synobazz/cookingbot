@@ -8,7 +8,7 @@ import { guardSameOrigin } from "@/lib/same-origin";
 
 const InputSchema = z.object({
   itemId: z.string().min(1),
-  action: z.enum(["replan", "remix"]),
+  action: z.enum(["replan", "remix", "delete"]),
 });
 
 function plannerRedirect(req: NextRequest, planId?: string, error?: string, itemId?: string) {
@@ -45,10 +45,15 @@ export async function POST(req: NextRequest) {
   try {
     if (action === "replan") {
       await replanMealItem(itemId);
-    } else {
-      await remixMealItem(itemId);
+      return plannerRedirect(req, item.mealPlanId, undefined, item.id);
     }
-    return plannerRedirect(req, item.mealPlanId, undefined, item.id);
+    if (action === "remix") {
+      await remixMealItem(itemId);
+      return plannerRedirect(req, item.mealPlanId, undefined, item.id);
+    }
+
+    await prisma.mealItem.delete({ where: { id: itemId } });
+    return plannerRedirect(req, item.mealPlanId);
   } catch (error) {
     console.error(`${action} failed`, error instanceof Error ? error.message : "unknown");
     if (error instanceof RemixError) return plannerRedirect(req, item.mealPlanId, error.message, item.id);

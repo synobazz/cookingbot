@@ -24,7 +24,7 @@ function tokenMatches(presented: string, expected: string) {
  */
 export async function GET(req: NextRequest) {
   const report = await runHealthChecks();
-  const httpStatus = report.status === "ok" ? 200 : 503;
+  const httpStatus = report.status === "error" ? 503 : 200;
 
   const isAuthed = await requireAuth();
   const detailsPublic = process.env.HEALTH_DETAILS_PUBLIC === "true";
