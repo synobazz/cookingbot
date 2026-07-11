@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { SearchIcon } from "./icons";
 
 export type FilterTag = { id: string; label: string };
@@ -26,6 +26,19 @@ export function RecipeFilters({ tags, totalCount }: Props) {
   const activeSort = searchParams.get("sort") || "rating";
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
+  // Letzter Wert, den WIR in die URL geschrieben haben. Ändert sich ?q=
+  // von außen (Back/Forward), übernehmen wir ihn ins Feld — sonst würde
+  // der Debounce unten den alten Wert sofort wieder in die URL drücken
+  // und den Zurück-Button aushebeln.
+  const lastPushedQuery = useRef(initialQuery);
+
+  useEffect(() => {
+    const urlQuery = searchParams.get("q") || "";
+    if (urlQuery !== lastPushedQuery.current) {
+      lastPushedQuery.current = urlQuery;
+      setQuery(urlQuery);
+    }
+  }, [searchParams]);
 
   // Debounce ?q=
   useEffect(() => {
@@ -35,6 +48,7 @@ export function RecipeFilters({ tags, totalCount }: Props) {
       const params = new URLSearchParams(searchParams.toString());
       if (query) params.set("q", query);
       else params.delete("q");
+      lastPushedQuery.current = query;
       startTransition(() => router.replace(`/recipes?${params.toString()}`));
     }, 300);
     return () => clearTimeout(handle);

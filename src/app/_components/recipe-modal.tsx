@@ -33,6 +33,12 @@ type Props = {
   triggerLabel?: React.ReactNode;
   /** Trigger-Button-Klasse. Default: "btn sm" */
   triggerClassName?: string;
+  /**
+   * Accessible Name für den Trigger — nötig, wenn triggerLabel kein Text
+   * ist (z. B. die Bildkachel auf der Rezeptkarte), sonst hören
+   * Screenreader nur "Button".
+   */
+  triggerAriaLabel?: string;
   /** Optionale Aktionen im geöffneten Modal, z. B. Export-Button. */
   actionSlot?: React.ReactNode;
 };
@@ -104,6 +110,7 @@ export function RecipeModal({
   variant,
   triggerLabel = "Rezept öffnen",
   triggerClassName = "btn sm",
+  triggerAriaLabel,
   actionSlot,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -297,6 +304,7 @@ export function RecipeModal({
         ref={triggerRef}
         type="button"
         className={triggerClassName}
+        aria-label={triggerAriaLabel}
         onClick={() => setOpen(true)}
       >
         {triggerLabel}

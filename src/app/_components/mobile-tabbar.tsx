@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookIcon, CalendarIcon, CartIcon, CogIcon, HomeIcon } from "./icons";
+import { BookIcon, CalendarIcon, CartIcon, HomeIcon, PantryIcon } from "./icons";
 
+// Einstellungen sind mobil über das Zahnrad in der Topbar erreichbar —
+// der Tabbar-Platz gehört den täglichen Zielen inkl. Vorrat.
 const items = [
   { href: "/", label: "Heute", Icon: HomeIcon },
   { href: "/recipes", label: "Rezepte", Icon: BookIcon },
   { href: "/planner", label: "Plan", Icon: CalendarIcon },
   { href: "/shopping", label: "Einkauf", Icon: CartIcon },
-  { href: "/settings", label: "Setup", Icon: CogIcon },
+  { href: "/pantry", label: "Vorrat", Icon: PantryIcon },
 ];
 
 function isActive(pathname: string, href: string) {
