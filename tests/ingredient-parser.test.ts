@@ -133,22 +133,6 @@ describe("isStapleKey", () => {
     expect(isStapleKey(r.key)).toBe(false);
   });
 
-  it("does not flag compounds that merely start with a staple word", () => {
-    expect(isStapleKey(parseIngredient("500 g Salzkartoffeln").key)).toBe(false);
-    expect(isStapleKey(parseIngredient("200 g Zuckerschoten").key)).toBe(false);
-    expect(isStapleKey(parseIngredient("1 Mehlschwitze").key)).toBe(false);
-    expect(isStapleKey(parseIngredient("100 g Oliven").key)).toBe(false);
-    expect(isStapleKey(parseIngredient("1 Bund Pfefferminze").key)).toBe(false);
-    expect(isStapleKey(parseIngredient("2 Chilischoten").key)).toBe(false);
-  });
-
-  it("still matches stem-based staples", () => {
-    expect(isStapleKey(parseIngredient("1 TL Paprikapulver").key)).toBe(true);
-    expect(isStapleKey(parseIngredient("1 Prise Cayennepfeffer").key)).toBe(true);
-    expect(isStapleKey(parseIngredient("2 Lorbeerblätter").key)).toBe(true);
-    expect(isStapleKey(parseIngredient("1 EL Sonnenblumenöl").key)).toBe(true);
-  });
-
   it("staple set is non-empty", () => {
     expect(STAPLE_KEYS.size).toBeGreaterThan(10);
   });

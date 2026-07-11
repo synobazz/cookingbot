@@ -17,7 +17,7 @@
  * jede Zeile lässt sich im DevTools-Debugger nachvollziehen.
  */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `cookingbot-shell-${CACHE_VERSION}`;
 const PAGE_CACHE = `cookingbot-pages-${CACHE_VERSION}`;
 const ASSET_CACHE = `cookingbot-assets-${CACHE_VERSION}`;
@@ -90,9 +90,12 @@ async function handleNavigation(req) {
     const cache = await caches.open(PAGE_CACHE);
     const cached = await cache.match(req);
     if (cached) return cached;
-    // Kein Cross-URL-Fallback: sonst würde z. B. /planner offline die
-    // gecachte /shopping-Seite unter falscher URL anzeigen (und nach
-    // Reconnect zu Hydration-Mismatches führen).
+    // Fallback: irgendwas aus dem Page-Cache, sonst leerer Hinweis.
+    const anyCached = (await cache.keys())[0];
+    if (anyCached) {
+      const fallback = await cache.match(anyCached);
+      if (fallback) return fallback;
+    }
     return new Response(
       "<!doctype html><meta charset=utf-8><title>Offline</title><body style='font-family:sans-serif;padding:40px;color:#1a1612;background:#f6f1e7'><h1>Offline</h1><p>Cookingbot ist gerade nicht erreichbar. Wenn du die Einkaufsliste schon einmal geöffnet hattest, lass diese Seite offen — sie bleibt aus dem Cache verfügbar.</p>",
       { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } },
@@ -102,25 +105,7 @@ async function handleNavigation(req) {
 
 async function handleAsset(req) {
   const cache = await caches.open(ASSET_CACHE);
-  const url = new URL(req.url);
-  // Ungehashte Shell-Dateien (Manifest, Icons) würden cache-first nach
-  // einem Deploy für immer stale bleiben → network-first mit Cache nur
-  // als Offline-Fallback. Next-Assets unter /_next/static sind gehasht
-  // und dürfen cache-first bleiben.
-  const isUnhashedShell = !url.pathname.startsWith("/_next/");
-  if (isUnhashedShell) {
-    try {
-      const fresh = await fetch(req);
-      if (fresh.ok) cache.put(req, fresh.clone());
-      return fresh;
-    } catch {
-      // caches.match durchsucht auch SHELL_CACHE (Install-Precache).
-      const cached = await caches.match(req);
-      if (cached) return cached;
-      return new Response("", { status: 504 });
-    }
-  }
-  const cached = await caches.match(req);
+  const cached = await cache.match(req);
   if (cached) return cached;
   try {
     const fresh = await fetch(req);

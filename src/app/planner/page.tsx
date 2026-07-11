@@ -50,6 +50,14 @@ export default async function PlannerPage({
     { weekStartsOn: 1 },
   );
   const startDateStr = format(nextMonday, "yyyy-MM-dd");
+  const dayItems = defaultDayKeys.map((value, idx) => {
+    const date = addDays(nextMonday, idx);
+    return {
+      value,
+      short: DAY_SHORT[value] || value.slice(0, 2),
+      dateNumber: parseInt(format(date, "d"), 10),
+    };
+  });
 
   const planWeekNumber = activePlan ? format(activePlan.startsOn, "II", { locale: de }) : null;
   const planRange = activePlan
@@ -92,6 +100,7 @@ export default async function PlannerPage({
         <aside className="planner-form">
           <PlannerForm
             defaultStart={startDateStr}
+            dayItems={dayItems}
             defaultDays={defaultDayKeys}
             defaultPeople={activePlan?.people ?? 2.5}
           />

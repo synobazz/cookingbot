@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CartIcon, ChevronDownIcon, DownloadIcon, TrashIcon } from "../_components/icons";
 import { categorize, sortCategoryKey, STAPLE_CHECK_CATEGORY } from "@/lib/shopping-categories";
@@ -49,13 +49,6 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
   const [items, setItems] = useState<ShoppingItem[]>(list?.items ?? []);
   const [hideDone, setHideDone] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-
-  // Server-Daten übernehmen, wenn router.refresh() (nach Toggle/Export)
-  // oder ein zweites Gerät die Liste geändert hat — sonst bleibt der
-  // lokale Optimistic-State für immer die einzige Wahrheit.
-  useEffect(() => {
-    setItems(list?.items ?? []);
-  }, [list]);
 
   const grouped = useMemo(() => groupItems(items), [items]);
   const total = items.length;
@@ -169,11 +162,11 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
             <h4>Microsoft To Do verbinden</h4>
             <p>Schick offene Einkaufspunkte direkt als Aufgaben in deine „Einkauf"-Liste.</p>
           </div>
-          <PendingForm action="/api/microsoft/connect" method="post" pendingMessage="Weiterleitung zu Microsoft…">
-            <PendingButton className="btn" type="submit">
+          <form action="/api/microsoft/connect" method="post">
+            <button className="btn" type="submit">
               Verbinden
-            </PendingButton>
-          </PendingForm>
+            </button>
+          </form>
         </div>
       ) : null}
 

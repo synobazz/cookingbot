@@ -36,17 +36,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Im Dev-Mode braucht React `eval()` (Callstack-Rekonstruktion, Fast
-// Refresh) — ohne die Ausnahme spammt die Konsole CSP-Fehler und das
-// Dev-Overlay meldet dauerhaft ein Issue. Production bleibt strikt.
-const scriptSrc =
-  process.env.NODE_ENV === "development"
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'";
-
 const CSP = [
   "default-src 'self'",
-  scriptSrc,
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",

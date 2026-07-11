@@ -4,27 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "../_components/icons";
 import { DayToggleGroup, type DayToggleItem } from "../_components/day-toggle-group";
 import { PeopleStepper } from "../_components/people-stepper";
-import { PendingForm, PendingButton } from "../_components/pending-form";
+import { PendingForm } from "../_components/pending-form";
 
 type Props = {
   defaultStart: string;
+  dayItems: DayToggleItem[];
   defaultDays: string[];
   defaultPeople: number;
 };
 
 const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-// getDay(): 0 = Sonntag … 6 = Samstag → Planner-Day-Keys
-const DAY_KEY_BY_GETDAY = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
-const DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
-const DAY_SHORT: Record<string, string> = {
-  monday: "Mo",
-  tuesday: "Di",
-  wednesday: "Mi",
-  thursday: "Do",
-  friday: "Fr",
-  saturday: "Sa",
-  sunday: "So",
-};
 const months = ["Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
 function localIso(date: Date) {
@@ -70,29 +59,10 @@ function calendarDates(year: number, month: number) {
   });
 }
 
-export function PlannerForm({ defaultStart, defaultDays, defaultPeople }: Props) {
+export function PlannerForm({ defaultStart, dayItems, defaultDays, defaultPeople }: Props) {
   const [days, setDays] = useState<string[]>(defaultDays);
   const [people, setPeople] = useState<number>(defaultPeople);
   const [start, setStart] = useState(defaultStart);
-
-  // Chips zeigen pro Wochentag das Datum, das die Planung tatsächlich
-  // verwenden wird: das erste Vorkommen ab dem Startdatum (analog zu
-  // buildPlanningDates). Muss aus `start` abgeleitet sein, sonst zeigen
-  // die Chips nach ±7/Kalenderwahl veraltete Zahlen.
-  const dayItems = useMemo<DayToggleItem[]>(() => {
-    const startDate = isoToDate(start);
-    const firstDateByKey = new Map<string, number>();
-    for (let offset = 0; offset < 7; offset++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + offset);
-      firstDateByKey.set(DAY_KEY_BY_GETDAY[date.getDay()], date.getDate());
-    }
-    return DAY_ORDER.map((value) => ({
-      value,
-      short: DAY_SHORT[value],
-      dateNumber: firstDateByKey.get(value) ?? 0,
-    }));
-  }, [start]);
   const [startDisplay, setStartDisplay] = useState(isoToDisplay(defaultStart));
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -247,10 +217,10 @@ export function PlannerForm({ defaultStart, defaultDays, defaultPeople }: Props)
             placeholder="z. B. 2× schnell, 1× kindertauglich, Samstag darf aufwendiger sein…"
           />
         </div>
-        <PendingButton className="btn forest block" type="submit" disabled={days.length === 0}>
+        <button className="btn forest block" type="submit" disabled={days.length === 0}>
           <CheckIcon />
           Plan generieren
-        </PendingButton>
+        </button>
         <p className="muted" style={{ fontSize: ".78rem", textAlign: "center", margin: 0 }}>
           Dauert ~1–2&nbsp;Minuten
         </p>

@@ -23,7 +23,6 @@ export function RecipeCard({ recipe, variant, topChip, showFavorite = false, ext
         recipe={recipe}
         variant={v}
         triggerClassName="recipe-image-trigger"
-        triggerAriaLabel={`Rezept öffnen: ${recipe.name}`}
         triggerLabel={
           <RecipeImageTile recipeId={recipe.id} name={recipe.name} variant={v}>
             {topChip ? (
