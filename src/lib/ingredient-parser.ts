@@ -48,9 +48,6 @@ export const STAPLE_KEYS: ReadonlySet<string> = new Set([
   "mehl",
   // Öle / Essige
   "ol",
-  "oliveno",
-  "sonnenblumeno",
-  "rapso",
   "essig",
   "balsamico",
   // Standard-Saucen
@@ -58,22 +55,39 @@ export const STAPLE_KEYS: ReadonlySet<string> = new Set([
   "honig",
   "senf",
   // gängige Trockengewürze
-  "paprikapulv",
-  "currypulv",
-  "kreuzkumm",
   "kumin",
-  "koriand",
   "zimt",
   "muskat",
-  "lorbe",
   "thymian",
   "rosmarin",
   "oregano",
   "majoran",
   "chili",
-  "cayenn",
   "kurkuma",
 ]);
+
+/**
+ * Wortstämme, die per Präfix matchen dürfen, weil jede Fortsetzung des
+ * Stamms noch dieselbe Vorratszutat meint ("oliveno" → Olivenöl/Olivenoel,
+ * "paprikapulv" → Paprikapulver). Kurze Alltagswörter wie "salz" gehören
+ * NICHT hierher — sonst würden Salzkartoffeln, Zuckerschoten oder
+ * Mehlspeisen fälschlich als Vorrat aussortiert.
+ */
+export const STAPLE_STEMS: readonly string[] = [
+  "oliveno",
+  "sonnenblumeno",
+  "rapso",
+  "paprikapulv",
+  "currypulv",
+  "chilipulv",
+  "chiliflock",
+  "kreuzkumm",
+  "koriand",
+  "lorbe",
+  "cayenn",
+  "muskatnuss",
+  "pfefferkorn",
+];
 
 /** Einheiten-Synonyme → kanonische Form. */
 const UNIT_ALIASES: Record<string, string> = {
@@ -416,13 +430,20 @@ export function aggregateIngredients(
 
 /**
  * Prüft, ob ein normalisierter Key zu einer Vorratszutat zählt.
- * Nutzt Prefix-Match, damit "olivenol" via Stamm "oliveno" trifft.
+ *
+ * STAPLE_KEYS matchen nur exakt bzw. an Wortgrenzen ("grobes salz"),
+ * damit Komposita wie Salzkartoffeln oder Zuckerschoten Einkaufsware
+ * bleiben. STAPLE_STEMS matchen per Präfix am Wortanfang ("olivenol").
  */
 export function isStapleKey(key: string): boolean {
   if (!key) return false;
   if (STAPLE_KEYS.has(key)) return true;
-  for (const staple of STAPLE_KEYS) {
-    if (key.startsWith(staple)) return true;
+  const words = key.split(/\s+/);
+  for (const word of words) {
+    if (STAPLE_KEYS.has(word)) return true;
+    for (const stem of STAPLE_STEMS) {
+      if (word.startsWith(stem)) return true;
+    }
   }
   return false;
 }

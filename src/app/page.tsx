@@ -32,7 +32,8 @@ function deriveTag(item: { isRemix: boolean; reasoning: string | null; recipe: {
     if (cats.some((c) => /suppe/i.test(c))) return "Suppe";
     if (cats.some((c) => /klassiker|familie/i.test(c))) return "Klassiker";
   } catch {}
-  return "Plan";
+  // Kein aussagekräftiges Tag → lieber keins als ein generisches "Plan".
+  return null;
 }
 
 export default async function HomePage() {
@@ -120,7 +121,15 @@ export default async function HomePage() {
                 {tonight.recipe?.totalTime || tonight.recipe?.cookTime ? (
                   <span>{tonight.recipe.totalTime || tonight.recipe.cookTime}</span>
                 ) : null}
-                {tonight.recipe?.servings ? <span>{tonight.recipe.servings} Personen</span> : null}
+                {tonight.recipe?.servings ? (
+                  <span>
+                    {/* Paprika liefert servings mal als "4", mal als "4 Portionen" —
+                        Suffix nur anhängen, wenn es eine nackte Zahl ist. */}
+                    {/^\d+([.,]\d+)?$/.test(tonight.recipe.servings.trim())
+                      ? `${tonight.recipe.servings.trim()} Personen`
+                      : tonight.recipe.servings}
+                  </span>
+                ) : null}
                 {tonight.isRemix ? <span>Remix</span> : null}
               </div>
               <div className="acts">

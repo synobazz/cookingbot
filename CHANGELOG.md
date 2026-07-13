@@ -6,6 +6,22 @@ Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Fixed
+- **Zeitzonen-Bug in der Wochenplanung**: Die an das LLM übergebenen Datumswerte wurden per `toISOString()` in UTC formatiert, während `dayName` lokal berechnet wurde. In `Europe/Vienna` (UTC+1/+2) verschob sich dadurch der komplette Plan um einen Tag (`dayName: "monday"`, aber `date` = Sonntag). Datum wird jetzt konsequent lokal formatiert; gespeicherte MealItems verwenden lokale Mitternacht wie `startsOn`.
+- **Doppel-Submit bei „Plan generieren"**: Der teuerste Button der App (LLM-Call, 1–2 Minuten) hatte als einziger keinen Pending-Schutz — ein zweiter Klick löste einen zweiten Plan aus. Jetzt `PendingButton` wie überall; ebenso „Microsoft verbinden" im Shopping-Board.
+- **Stale Tages-Chips im Planner-Formular**: Nach Änderung des Startdatums (±7, Kalender, manuelle Eingabe) zeigten die Mo–So-Chips weiterhin die Datumszahlen der ursprünglichen Woche. Die Chips werden jetzt client-seitig aus dem Startdatum abgeleitet und zeigen genau die Tage, die `buildPlanningDates` tatsächlich planen wird.
+- **Einkaufsliste synchronisiert Serverstand**: Das Shopping-Board übernahm Server-Änderungen (zweites Gerät, Export-Status) nie in den lokalen State — `router.refresh()` war für die Item-Liste wirkungslos. Jetzt Sync per `useEffect` auf die Server-Prop.
+- **Service Worker**: Offline lieferte der Navigations-Fallback die gecachte `/shopping`-Seite unter beliebigen URLs aus (z. B. als `/planner`). Ungehashte Shell-Dateien (Manifest, Icons) waren cache-first und blieben nach Deploys stale — jetzt network-first mit Cache-Fallback; der Install-Precache (`SHELL_CACHE`) wird beim Offline-Fallback jetzt tatsächlich gefunden (`caches.match` statt Cache-lokalem Match). `CACHE_VERSION` → v3.
+- **Vorrats-Erkennung**: `isStapleKey` matchte per Präfix — Salzkartoffeln, Zuckerschoten, Mehlschwitze, Oliven, Pfefferminze und Chilischoten landeten fälschlich im „Hast du noch?"-Block statt auf der Einkaufsliste. Exakte Wörter matchen jetzt nur an Wortgrenzen; bewusste Wortstämme (Olivenöl, Paprikapulver, …) stehen in einer separaten `STAPLE_STEMS`-Liste.
+- **Einkaufs-Kategorisierung**: „Reis" landete über `/eis\b/` in Tiefkühl, Tomatenmark über `/tomate/` in Obst & Gemüse, Kokos-/Hafer-/Mandelmilch über `/milch\b/` bei den Milchprodukten. Spezifische Vorrats-Regeln greifen jetzt vor den generischen; neue Testdatei `tests/shopping-categories.test.ts`.
+- **Rezept-Suchfeld vs. Browser-Zurück**: Das Suchfeld hielt bei Back/Forward am alten Wert fest und der Debounce schrieb ihn sofort wieder in die URL — der Zurück-Button war damit ausgehebelt. Externe URL-Änderungen werden jetzt ins Feld übernommen.
+- **Planner-Layout auf Desktop**: Die fünf Aktions-Buttons pro Gericht liefen rechts aus der Karte (abgeschnittenes „Öffnen"). Aktionen wrappen jetzt; auf mittleren Breiten (1025–1460 px) wandern sie unter das Gericht, damit Titel nicht mehr vierzeilig umbrechen.
+
+### Changed
+- **Vorrat in der Mobile-Tabbar**: `/pantry` war mobil nicht erreichbar (Sidebar ausgeblendet, kein Tab). „Vorrat" ersetzt „Setup" in der Tabbar; Einstellungen sind mobil über ein Zahnrad-Icon in der Topbar erreichbar.
+- **A11y & Detail-Polish**: Die Bild-Trigger der Rezeptkarten haben jetzt einen Accessible Name (`Rezept öffnen: <Name>`); das generische „Plan"-Fallback-Tag im Dashboard-Wochengrid entfällt; die „Heute Abend"-Karte hängt „Personen" nur noch an nackte Zahlen an.
+- **Dev-CSP**: `script-src` erlaubt im Development `'unsafe-eval'`, damit React-Dev-Features (Fast Refresh, Callstacks) nicht dauerhaft CSP-Fehler werfen. Production-CSP unverändert strikt.
+
 ### Added
 - **iOS-PWA-Polish**: dediziertes `apple-touch-icon.png` (180×180), zusätzliche PNG-Icons in 192/512 für Android/Chrome, sieben gerätespezifische Apple-Splash-Screens (iPhone 16/16-Pro-Max/14-Plus/XS-Max/13-mini/SE und iPad Pro) mit korrekten Media-Queries. Beim Öffnen von "Zum Home-Bildschirm" zeigt iOS jetzt einen Paper-Tone-Splash statt eines weißen Frames.
 - **`IosInstallHint`-Banner**: einmaliger, dismissbarer Bottom-Banner, der iOS-Safari-Nutzern erklärt, wie sie die App per Share-Sheet auf den Home-Bildschirm legen. Erscheint nur auf iOS, nur außerhalb des Standalone-Modus, und merkt sich den Dismiss in `localStorage`.

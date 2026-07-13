@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { format } from "date-fns";
 import type { MealPlan } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getOpenAIClient, plannerModel } from "@/lib/llm";
@@ -158,7 +159,9 @@ export async function generateMealPlan(input: PlannerInput): Promise<GeneratedPl
             dietaryConstraints: dietaryBlock || "(keine speziellen Diät- oder Allergie-Constraints konfiguriert)",
             notes,
             dates: planningDates.map((d) => ({
-              date: d.date.toISOString().slice(0, 10),
+              // Lokal formatieren — toISOString() würde in UTC+X den Vortag
+              // liefern und date/dayName widersprächen sich.
+              date: format(d.date, "yyyy-MM-dd"),
               dayName: d.dayName,
             })),
             rules: dietaryBlock
@@ -218,7 +221,9 @@ export async function createMealPlan(input: PlannerInput): Promise<MealPlan> {
       llmNotes: generated.notes,
       items: {
         create: generated.meals.map((meal) => ({
-          date: new Date(meal.date),
+          // Lokale Mitternacht wie startsOn — `new Date("YYYY-MM-DD")` wäre
+          // UTC-Mitternacht und damit ein anderer Kalendertag bei negativem Offset.
+          date: new Date(`${meal.date}T00:00:00`),
           dayName: meal.dayName,
           title: meal.title,
           recipeId: meal.recipeId,

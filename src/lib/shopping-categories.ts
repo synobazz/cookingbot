@@ -23,7 +23,19 @@ export type ShoppingCategory = (typeof CATEGORY_ORDER)[number];
 const RULES: { category: ShoppingCategory; patterns: RegExp[] }[] = [
   {
     category: "Tiefkühl",
-    patterns: [/tiefk[üu]hl/i, /tk[\s-]/i, /\btk\b/i, /gefrier/i, /eis\b/i],
+    // \beis\b statt eis\b — sonst matcht "Reis" (r-eis) fälschlich Tiefkühl.
+    patterns: [/tiefk[üu]hl/i, /tk[\s-]/i, /\btk\b/i, /gefrier/i, /\beis\b/i],
+  },
+  {
+    // Spezifische Vorrats-Komposita VOR den generischen Regeln, weil die
+    // erste Übereinstimmung gewinnt: "Tomatenmark" würde sonst über
+    // /tomate/ in Obst & Gemüse landen, "Kokosmilch" über /milch\b/ bei
+    // den Milchprodukten.
+    category: "Vorrat",
+    patterns: [
+      /tomatenmark/i, /passata/i, /dosentomate/i, /gehackte\s+tomate/i,
+      /kokosmilch/i, /mandelmilch/i, /hafermilch/i, /sojamilch/i, /reismilch/i,
+    ],
   },
   {
     category: "Obst & Gemüse",
@@ -73,8 +85,8 @@ const RULES: { category: ShoppingCategory; patterns: RegExp[] }[] = [
       /reis\b/i, /risotto-reis/i, /arborio/i, /pasta/i, /nudel/i, /spaghetti/i, /penne/i, /fusilli/i,
       /tagliatelle/i, /lasagne/i, /couscous/i, /bulgur/i, /quinoa/i, /haferflocken/i, /m[üu]sli/i,
       /mehl/i, /zucker/i, /backpulver/i, /hefe/i, /honig/i, /senf/i, /ketchup/i, /mayo/i,
-      /[öo]l\b/i, /essig/i, /sojasauce/i, /soja-sauce/i, /tomatenmark/i, /passata/i, /dose/i, /konserve/i,
-      /br[üu]he/i, /fond/i, /bouillon/i, /kokosmilch/i, /tahini/i, /hummus/i, /nuss/i, /mandel/i, /walnuss/i,
+      /[öo]l\b/i, /essig/i, /sojasauce/i, /soja-sauce/i, /dose/i, /konserve/i,
+      /br[üu]he/i, /fond/i, /bouillon/i, /tahini/i, /hummus/i, /nuss/i, /mandel/i, /walnuss/i,
       /haseln/i, /samen/i, /kerne/i,
     ],
   },

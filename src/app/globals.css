@@ -445,7 +445,7 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .plan-tab { padding: 7px 13px; border-radius: 8px; border: 0; background: transparent; cursor: pointer; font-size: 0.82rem; color: var(--muted); font-weight: 600; }
 .plan-tab.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow-sm); }
 
-.plan-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 24px; }
+.plan-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 24px; }
 .plan-row:last-child { border-bottom: 0; }
 .plan-row .plan-day { display: flex; flex-direction: column; gap: 2px; }
 .plan-row .plan-day b { font-family: var(--font-fraunces), serif; font-weight: 500; font-size: 1.05rem; }
@@ -455,10 +455,21 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .plan-row .plan-meal .pm-reason { color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
 .plan-row .plan-meal .pm-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 .plan-row.empty .plan-meal { color: var(--muted); font-style: italic; }
-.plan-row .plan-acts { display: flex; gap: 6px; }
+/* 5 Aktionen passen nicht immer in eine Zeile — wrappen statt aus der
+   Karte zu laufen; max-width zwingt die auto-Spalte zum Umbruch. */
+.plan-row .plan-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 320px; }
 .plan-row .plan-acts .btn { padding: 8px 11px; font-size: 0.8rem; min-height: 36px; }
 
 .plan-foot { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--line-strong); }
+
+/* Mittlere Desktop-Breiten (Sidebar + zwei Spalten): 5 Aktionen inline
+   würden den Gerichts-Titel auf Streichholzbreite quetschen — Aktionen
+   wandern unter das Gericht. */
+@media (min-width: 1025px) and (max-width: 1460px) {
+  .plan-row { grid-template-columns: 90px minmax(0, 1fr); row-gap: 10px; }
+  .plan-row .plan-day { grid-row: 1 / 3; align-self: start; }
+  .plan-row .plan-acts { grid-column: 2; justify-content: flex-start; max-width: none; }
+}
 
 /* =========== Shopping =========== */
 .shop-progress { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; display: flex; align-items: center; gap: 24px; margin-bottom: 22px; }
@@ -722,6 +733,7 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 7px;
     width: 100%;
+    max-width: none;
   }
   .plan-row .plan-acts form { min-width: 0; }
   .plan-row .plan-acts .btn { width: 100%; padding: 9px 8px; min-width: 0; }
