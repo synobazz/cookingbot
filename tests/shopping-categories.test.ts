@@ -6,6 +6,7 @@ describe("categorize", () => {
     expect(categorize("Reis")).toBe("Vorrat");
     expect(categorize("Risottoreis")).toBe("Vorrat");
     expect(categorize("Basmati-Reis")).toBe("Vorrat");
+    expect(categorize("Preis")).toBe("Sonstiges");
   });
 
   it("still detects real frozen goods", () => {

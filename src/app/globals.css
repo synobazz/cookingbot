@@ -383,6 +383,10 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .recipe-img.berry { background: linear-gradient(135deg, #cda9a3, #a87b7a); }
 .recipe-img.olive { background: linear-gradient(135deg, #c8c89a, #9aa56e); }
 .recipe-img.sage { background: linear-gradient(135deg, #d3ddc9, #a8b89c); }
+.recipe-img.apricot { background: linear-gradient(135deg, #f6d2ad, #e7a778); }
+.recipe-img.slate { background: linear-gradient(135deg, #cbd8dc, #91a9b1); }
+.recipe-img.aubergine { background: linear-gradient(135deg, #d3bdcf, #9b7895); }
+.recipe-img.mint { background: linear-gradient(135deg, #cce7da, #91c5ad); }
 .recipe-img-glyph { font-family: var(--font-fraunces), serif; font-style: italic; font-weight: 300; font-size: 3.2rem; color: rgba(26, 22, 18, 0.22); user-select: none; letter-spacing: -0.04em; font-variation-settings: "SOFT" 100; }
 .recipe-img.ink .recipe-img-glyph { color: rgba(233, 214, 176, 0.45); }
 .recipe-img.has-photo { background: var(--card-2); }
@@ -505,19 +509,31 @@ h2.section { font-family: var(--font-fraunces), serif; font-weight: 500; font-si
 .shop-staples .shop-cat-head { margin-bottom: 8px; }
 .shop-staples .shop-cat-head h4 { color: var(--gold); }
 .shop-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-.shop-item { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transition: background 0.15s; cursor: pointer; background: transparent; text-align: left; width: 100%; font: inherit; color: inherit; border-top: 0; border-left: 0; }
+.shop-item { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transition: background 0.18s, opacity 0.18s, transform 0.18s; cursor: pointer; background: transparent; text-align: left; width: 100%; font: inherit; color: inherit; border-top: 0; border-left: 0; }
 .shop-item:nth-child(2n) { border-right: 0; }
 .shop-item:nth-last-child(-n+2) { border-bottom: 0; }
 .shop-item:hover { background: var(--card-2); }
 .shop-check { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--line-strong); background: transparent; display: grid; place-items: center; flex: none; cursor: pointer; transition: all 0.15s; }
-.shop-check svg { opacity: 0; width: 13px; height: 13px; color: var(--paper); transition: opacity 0.15s; }
+.shop-check svg { opacity: 0; width: 13px; height: 13px; color: var(--paper); transform: scale(0.45) rotate(-12deg); transition: opacity 0.15s, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.35); }
 .shop-item.done .shop-check { background: var(--forest); border-color: var(--forest); }
-.shop-item.done .shop-check svg { opacity: 1; }
+.shop-item.done .shop-check svg { opacity: 1; transform: scale(1) rotate(0); }
+.shop-item.done { opacity: 0.72; }
 .shop-item .ttl { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .shop-item .ttl b { font-weight: 500; transition: all 0.2s; }
 .shop-item .ttl span { font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shop-item.done .ttl b { text-decoration: line-through; color: var(--muted); }
 .shop-item .qty { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.connection-status { display: flex; align-items: center; gap: 8px; margin: -8px 0 14px; color: var(--muted); font-size: 0.78rem; }
+.connection-status > span { width: 8px; height: 8px; border-radius: 50%; background: var(--forest); box-shadow: 0 0 0 3px var(--forest-soft); }
+.connection-status.offline { color: var(--warn); }
+.connection-status.offline > span { background: var(--warn); box-shadow: 0 0 0 3px var(--terra-soft); }
+.connection-status small { margin-left: auto; color: var(--muted); font: inherit; }
+
+.planner-generation { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-2); text-align: center; }
+.planner-generation > span { color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+.planner-generation-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.planner-generation-days span { padding: 8px 2px; border-radius: 8px; background: var(--paper-2); color: var(--muted); font-size: 0.67rem; font-weight: 700; animation: planner-day-pulse 1.4s ease-in-out infinite alternate; }
+@keyframes planner-day-pulse { to { transform: translateY(-3px); background: var(--forest-soft); color: var(--forest); } }
 
 /* =========== Modal =========== */
 .modal-back { position: fixed; inset: 0; z-index: 60; background: rgba(26, 22, 18, 0.5); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade 0.2s; }

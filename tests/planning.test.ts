@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPlanningDates,
+  calendarDateKey,
   containsUnsafeDinnerText,
   dayLabel,
   defaultDays,
   isUnsafeDinnerRecipe,
+  reconcileMealSchedule,
   safeJson,
   seasonForDate,
   splitIngredients,
@@ -43,6 +45,52 @@ describe("buildPlanningDates", () => {
   it("contains all 7 days when defaultDays is passed", () => {
     const result = buildPlanningDates(new Date("2025-05-05T00:00:00Z"), defaultDays);
     expect(result).toHaveLength(7);
+  });
+});
+
+describe("calendarDateKey", () => {
+  it("keeps the local calendar day instead of converting through UTC", () => {
+    expect(calendarDateKey(new Date(2025, 4, 5, 0, 0, 0))).toBe("2025-05-05");
+  });
+});
+
+describe("reconcileMealSchedule", () => {
+  const dates = buildPlanningDates(new Date(2025, 4, 5), ["monday", "wednesday"]);
+
+  it("orders meals by requested day and replaces model-supplied dates", () => {
+    const result = reconcileMealSchedule(
+      [
+        { dayName: "wednesday", date: "2099-01-01", title: "Mittwoch" },
+        { dayName: "monday", date: "1999-01-01", title: "Montag" },
+      ],
+      dates,
+    );
+    expect(result.map(({ dayName, date, title }) => ({ dayName, date, title }))).toEqual([
+      { dayName: "monday", date: "2025-05-05", title: "Montag" },
+      { dayName: "wednesday", date: "2025-05-07", title: "Mittwoch" },
+    ]);
+  });
+
+  it("rejects missing, duplicate, and unknown planning days", () => {
+    expect(() => reconcileMealSchedule([{ dayName: "monday", date: "2025-05-05" }], dates)).toThrow();
+    expect(() =>
+      reconcileMealSchedule(
+        [
+          { dayName: "monday", date: "2025-05-05" },
+          { dayName: "monday", date: "2025-05-06" },
+        ],
+        dates,
+      ),
+    ).toThrow(/doppelt/);
+    expect(() =>
+      reconcileMealSchedule(
+        [
+          { dayName: "monday", date: "2025-05-05" },
+          { dayName: "friday", date: "2025-05-09" },
+        ],
+        dates,
+      ),
+    ).toThrow(/wednesday/);
   });
 });
 

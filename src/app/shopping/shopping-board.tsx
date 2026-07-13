@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CartIcon, ChevronDownIcon, DownloadIcon, TrashIcon } from "../_components/icons";
 import { categorize, sortCategoryKey, STAPLE_CHECK_CATEGORY } from "@/lib/shopping-categories";
@@ -22,6 +22,7 @@ export type ShoppingListData = {
   title: string;
   planTitle: string;
   microsoftListName: string | null;
+  updatedAt: string;
   items: ShoppingItem[];
 };
 
@@ -49,6 +50,8 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
   const [items, setItems] = useState<ShoppingItem[]>(list?.items ?? []);
   const [hideDone, setHideDone] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [online, setOnline] = useState(true);
+  const pendingItems = useRef(new Set<string>());
 
   // Server-Daten übernehmen, wenn router.refresh() (nach Toggle/Export)
   // oder ein zweites Gerät die Liste geändert hat — sonst bleibt der
@@ -56,6 +59,17 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
   useEffect(() => {
     setItems(list?.items ?? []);
   }, [list]);
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   const grouped = useMemo(() => groupItems(items), [items]);
   const total = items.length;
@@ -73,6 +87,8 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
   }
 
   async function toggleItem(item: ShoppingItem) {
+    if (pendingItems.current.has(item.id)) return;
+    pendingItems.current.add(item.id);
     const previous = item.checked;
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked: !previous } : i)));
     try {
@@ -87,6 +103,8 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
       // revert
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked: previous } : i)));
       toast.error(`„${item.name}“ konnte nicht aktualisiert werden`);
+    } finally {
+      pendingItems.current.delete(item.id);
     }
   }
 
@@ -110,6 +128,11 @@ export function ShoppingBoard({ list, microsoftConnected, restoreAvailable }: Pr
 
   return (
     <>
+      <div className={`connection-status${online ? " online" : " offline"}`} role="status">
+        <span aria-hidden />
+        {online ? "Online" : "Offline – Änderungen sind erst mit Verbindung möglich"}
+        <small>Stand: {new Date(list.updatedAt).toLocaleString("de-AT", { dateStyle: "short", timeStyle: "short" })}</small>
+      </div>
       <div className="shop-progress" style={{ ["--p" as string]: pct } as React.CSSProperties}>
         <div className="shop-ring" style={{ ["--p" as string]: pct } as React.CSSProperties}>
           <span>{pct}%</span>

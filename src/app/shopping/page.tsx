@@ -56,6 +56,7 @@ export default async function ShoppingPage({
         title: activeList.title,
         planTitle: activeList.mealPlan.title,
         microsoftListName: activeList.microsoftListName,
+        updatedAt: activeList.updatedAt.toISOString(),
         items: activeList.items.map((i) => ({
           id: i.id,
           name: i.name,

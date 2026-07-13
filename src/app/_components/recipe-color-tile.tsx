@@ -10,6 +10,10 @@ const TILE_VARIANTS = [
   "berry",
   "cream",
   "ink",
+  "apricot",
+  "slate",
+  "aubergine",
+  "mint",
 ] as const;
 
 export type TileVariant = (typeof TILE_VARIANTS)[number];

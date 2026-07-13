@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckIcon } from "../_components/icons";
 import { DayToggleGroup, type DayToggleItem } from "../_components/day-toggle-group";
 import { PeopleStepper } from "../_components/people-stepper";
-import { PendingForm, PendingButton } from "../_components/pending-form";
+import { useToast } from "../_components/toast";
 
 type Props = {
   defaultStart: string;
@@ -26,6 +27,12 @@ const DAY_SHORT: Record<string, string> = {
   sunday: "So",
 };
 const months = ["Jänner", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const GENERATION_STEPS = [
+  "Rezepte werden gesichtet…",
+  "Die Woche wird zusammengestellt…",
+  "Abwechslung und Vorräte werden geprüft…",
+  "Der letzte Küchencheck läuft…",
+];
 
 function localIso(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -71,9 +78,13 @@ function calendarDates(year: number, month: number) {
 }
 
 export function PlannerForm({ defaultStart, defaultDays, defaultPeople }: Props) {
+  const router = useRouter();
+  const toast = useToast();
   const [days, setDays] = useState<string[]>(defaultDays);
   const [people, setPeople] = useState<number>(defaultPeople);
   const [start, setStart] = useState(defaultStart);
+  const [generating, setGenerating] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0);
 
   // Chips zeigen pro Wochentag das Datum, das die Planung tatsächlich
   // verwenden wird: das erste Vorkommen ab dem Startdatum (analog zu
@@ -110,6 +121,36 @@ export function PlannerForm({ defaultStart, defaultDays, defaultPeople }: Props)
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
+  useEffect(() => {
+    if (!generating) return;
+    const interval = window.setInterval(
+      () => setGenerationStep((step) => Math.min(step + 1, GENERATION_STEPS.length - 1)),
+      18_000,
+    );
+    return () => window.clearInterval(interval);
+  }, [generating]);
+
+  async function generatePlan(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (generating || days.length === 0) return;
+    setGenerating(true);
+    setGenerationStep(0);
+    try {
+      const response = await fetch("/api/plan/generate", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: new FormData(event.currentTarget),
+      });
+      const result = (await response.json()) as { ok?: boolean; href?: string; error?: string };
+      if (!response.ok || !result.ok || !result.href) throw new Error(result.error || "Plan konnte nicht erstellt werden.");
+      router.push(result.href);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Plan konnte nicht erstellt werden.");
+      setGenerating(false);
+    }
+  }
+
   function setDate(value: string) {
     const date = isoToDate(value);
     setStart(value);
@@ -138,12 +179,12 @@ export function PlannerForm({ defaultStart, defaultDays, defaultPeople }: Props)
   }
 
   return (
-    <PendingForm
+    <form
       action="/api/plan/generate"
       method="post"
       className="card card-pad"
-      pendingMessage="Plan wird erstellt…"
-      pendingDetail="Dauert ~1–2 Minuten"
+      onSubmit={generatePlan}
+      aria-busy={generating}
     >
       <h3>Neue Woche</h3>
       <div className="form-grid">
@@ -247,14 +288,23 @@ export function PlannerForm({ defaultStart, defaultDays, defaultPeople }: Props)
             placeholder="z. B. 2× schnell, 1× kindertauglich, Samstag darf aufwendiger sein…"
           />
         </div>
-        <PendingButton className="btn forest block" type="submit" disabled={days.length === 0}>
+        <button className="btn forest block" type="submit" disabled={days.length === 0 || generating}>
           <CheckIcon />
-          Plan generieren
-        </PendingButton>
+          {generating ? "Plan wird erstellt…" : "Plan generieren"}
+        </button>
         <p className="muted" style={{ fontSize: ".78rem", textAlign: "center", margin: 0 }}>
           Dauert ~1–2&nbsp;Minuten
         </p>
+        {generating ? (
+          <div className="planner-generation" role="status" aria-live="polite">
+            <div className="planner-generation-days" aria-hidden>
+              {weekdays.map((day, index) => <span key={day} style={{ animationDelay: `${index * 90}ms` }}>{day}</span>)}
+            </div>
+            <strong>{GENERATION_STEPS[generationStep]}</strong>
+            <span>Du kannst diese Seite offen lassen – der Plan erscheint automatisch.</span>
+          </div>
+        ) : null}
       </div>
-    </PendingForm>
+    </form>
   );
 }

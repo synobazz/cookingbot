@@ -1,6 +1,17 @@
 import { addDays, format } from "date-fns";
 import { Recipe } from "@prisma/client";
 
+export type PlanningDate = { date: Date; dayName: string };
+
+/** Formatiert ein Date als lokalen Kalendertag, ohne UTC-Konvertierung. */
+export function calendarDateKey(date: Date) {
+  return [
+    String(date.getFullYear()).padStart(4, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export const defaultDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 const seasonMap = {
@@ -38,7 +49,7 @@ export function dayLabel(day: string) {
   return dayMap[day.toLowerCase()] || day;
 }
 
-export function buildPlanningDates(start: Date, days: string[]) {
+export function buildPlanningDates(start: Date, days: string[]): PlanningDate[] {
   const wanted = new Set(days.map((d) => d.toLowerCase()));
   const dates: { date: Date; dayName: string }[] = [];
   for (let offset = 0; dates.length < days.length && offset < 14; offset++) {
@@ -47,6 +58,33 @@ export function buildPlanningDates(start: Date, days: string[]) {
     if (wanted.has(dayName)) dates.push({ date, dayName });
   }
   return dates;
+}
+
+/**
+ * Bindet die LLM-Antwort wieder an den deterministisch berechneten Kalender.
+ * Das Modell darf Inhalt vorschlagen, aber weder Tage erfinden noch Datumswerte
+ * verschieben. Fehlende, doppelte oder unbekannte Tage werden abgewiesen.
+ */
+export function reconcileMealSchedule<T extends { dayName: string; date: string }>(
+  meals: T[],
+  planningDates: PlanningDate[],
+): T[] {
+  if (meals.length !== planningDates.length) {
+    throw new Error("Die Anzahl der Mahlzeiten passt nicht zu den angeforderten Tagen.");
+  }
+
+  const byDay = new Map<string, T>();
+  for (const meal of meals) {
+    const dayName = meal.dayName.toLowerCase();
+    if (byDay.has(dayName)) throw new Error(`Der Tag ${dayName} wurde doppelt geplant.`);
+    byDay.set(dayName, meal);
+  }
+
+  return planningDates.map(({ date, dayName }) => {
+    const meal = byDay.get(dayName);
+    if (!meal) throw new Error(`Für ${dayName} fehlt eine Mahlzeit.`);
+    return { ...meal, dayName, date: calendarDateKey(date) };
+  });
 }
 
 const unsafeDinnerNameTerms = [

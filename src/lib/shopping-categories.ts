@@ -82,7 +82,7 @@ const RULES: { category: ShoppingCategory; patterns: RegExp[] }[] = [
   {
     category: "Vorrat",
     patterns: [
-      /reis\b/i, /risotto-reis/i, /arborio/i, /pasta/i, /nudel/i, /spaghetti/i, /penne/i, /fusilli/i,
+      /(?:^|[\s-])reis\b/i, /risotto-?reis/i, /arborio/i, /pasta/i, /nudel/i, /spaghetti/i, /penne/i, /fusilli/i,
       /tagliatelle/i, /lasagne/i, /couscous/i, /bulgur/i, /quinoa/i, /haferflocken/i, /m[üu]sli/i,
       /mehl/i, /zucker/i, /backpulver/i, /hefe/i, /honig/i, /senf/i, /ketchup/i, /mayo/i,
       /[öo]l\b/i, /essig/i, /sojasauce/i, /soja-sauce/i, /dose/i, /konserve/i,

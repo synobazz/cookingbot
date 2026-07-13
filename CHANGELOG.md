@@ -18,9 +18,14 @@ Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 - **Planner-Layout auf Desktop**: Die fünf Aktions-Buttons pro Gericht liefen rechts aus der Karte (abgeschnittenes „Öffnen"). Aktionen wrappen jetzt; auf mittleren Breiten (1025–1460 px) wandern sie unter das Gericht, damit Titel nicht mehr vierzeilig umbrechen.
 
 ### Changed
+- **Planner-Warteerlebnis**: Die 1–2-minütige Generierung bleibt jetzt auf der Seite und zeigt eine ruhige, schrittweise Küchen-Story statt nur eines kleinen Pending-Toasts. Fehler erscheinen direkt, der klassische POST bleibt ohne JavaScript als Fallback erhalten.
+- **UI-Polish**: Einkaufspunkte reagieren mit einer animierten Checkmark und sanfterem Done-State; vier deutlichere Rezeptfarben erweitern die bisher stark grün/beige geprägte Palette. `prefers-reduced-motion` gilt weiterhin global.
+- **Offline-Transparenz**: Die Einkaufsliste zeigt Verbindungsstatus und den Stand der geladenen Liste sichtbar an.
 - **Vorrat in der Mobile-Tabbar**: `/pantry` war mobil nicht erreichbar (Sidebar ausgeblendet, kein Tab). „Vorrat" ersetzt „Setup" in der Tabbar; Einstellungen sind mobil über ein Zahnrad-Icon in der Topbar erreichbar.
 - **A11y & Detail-Polish**: Die Bild-Trigger der Rezeptkarten haben jetzt einen Accessible Name (`Rezept öffnen: <Name>`); das generische „Plan"-Fallback-Tag im Dashboard-Wochengrid entfällt; die „Heute Abend"-Karte hängt „Personen" nur noch an nackte Zahlen an.
 - **Dev-CSP**: `script-src` erlaubt im Development `'unsafe-eval'`, damit React-Dev-Features (Fast Refresh, Callstacks) nicht dauerhaft CSP-Fehler werfen. Production-CSP unverändert strikt.
+- **Planner-Resilienz**: Strukturell ungültige KI-Pläne erhalten genau einen gezielten Korrekturversuch. Doppelte, fehlende oder erfundene Planungstage werden nicht gespeichert.
+- **Shopping-Doppel-Taps**: Parallele Toggle-Requests für denselben Einkaufsartikel werden blockiert, damit langsamere Antworten keinen neueren Zustand überschreiben.
 
 ### Added
 - **iOS-PWA-Polish**: dediziertes `apple-touch-icon.png` (180×180), zusätzliche PNG-Icons in 192/512 für Android/Chrome, sieben gerätespezifische Apple-Splash-Screens (iPhone 16/16-Pro-Max/14-Plus/XS-Max/13-mini/SE und iPad Pro) mit korrekten Media-Queries. Beim Öffnen von "Zum Home-Bildschirm" zeigt iOS jetzt einen Paper-Tone-Splash statt eines weißen Frames.

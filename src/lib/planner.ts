@@ -1,13 +1,14 @@
 import { z } from "zod";
-import { format } from "date-fns";
 import type { MealPlan } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getOpenAIClient, plannerModel } from "@/lib/llm";
 import {
   buildPlanningDates,
+  calendarDateKey,
   containsUnsafeDinnerText,
   isUnsafeDinnerRecipe,
   recipeForPrompt,
+  reconcileMealSchedule,
   seasonForDate,
 } from "@/lib/planning";
 import { formatConstraintsForPrompt, getDietaryConstraints } from "@/lib/dietary";
@@ -140,8 +141,24 @@ export async function generateMealPlan(input: PlannerInput): Promise<GeneratedPl
   const client = getOpenAIClient();
   const dietaryBlock = formatConstraintsForPrompt(await getDietaryConstraints());
 
-  let raw: string;
-  try {
+  const requestPayload = {
+    task: "Plane Abendessen für die angegebenen Tage.",
+    household: "2 Erwachsene und ein 5-jähriges Kind (2,5 Personen)",
+    people,
+    season: seasonForDate(start),
+    preferences:
+      "Wir essen grundsätzlich alles. Aus Rezepten ableiten, saisonal denken. Im Sommer leichter, im Herbst/Winter gerne Eintöpfe etc.",
+    dietaryConstraints: dietaryBlock || "(keine speziellen Diät- oder Allergie-Constraints konfiguriert)",
+    notes,
+    dates: planningDates.map((d) => ({ date: calendarDateKey(d.date), dayName: d.dayName })),
+    rules: dietaryBlock
+      ? [...RULES, "Halte dich strikt an die dietaryConstraints. Verwende keine Rezepte, die diese verletzen."]
+      : RULES,
+    outputSchema: OUTPUT_SCHEMA_DOC,
+    recipes: recipes.map(recipeForPrompt),
+  };
+
+  async function requestPlan(correction?: string) {
     const response = await client.chat.completions.create({
       model: plannerModel(),
       response_format: { type: "json_object" },
@@ -149,43 +166,35 @@ export async function generateMealPlan(input: PlannerInput): Promise<GeneratedPl
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: JSON.stringify({
-            task: "Plane Abendessen für die angegebenen Tage.",
-            household: "2 Erwachsene und ein 5-jähriges Kind (2,5 Personen)",
-            people,
-            season: seasonForDate(start),
-            preferences:
-              "Wir essen grundsätzlich alles. Aus Rezepten ableiten, saisonal denken. Im Sommer leichter, im Herbst/Winter gerne Eintöpfe etc.",
-            dietaryConstraints: dietaryBlock || "(keine speziellen Diät- oder Allergie-Constraints konfiguriert)",
-            notes,
-            dates: planningDates.map((d) => ({
-              // Lokal formatieren — toISOString() würde in UTC+X den Vortag
-              // liefern und date/dayName widersprächen sich.
-              date: format(d.date, "yyyy-MM-dd"),
-              dayName: d.dayName,
-            })),
-            rules: dietaryBlock
-              ? [...RULES, "Halte dich strikt an die dietaryConstraints. Verwende keine Rezepte, die diese verletzen."]
-              : RULES,
-            outputSchema: OUTPUT_SCHEMA_DOC,
-            recipes: recipes.map(recipeForPrompt),
-          }),
+          content: JSON.stringify(correction ? { ...requestPayload, correction } : requestPayload),
         },
       ],
     });
-    raw = response.choices[0]?.message?.content || "{}";
-  } catch (error) {
-    throw new PlannerError("Die KI-Antwort war nicht verwendbar oder der Anbieter ist nicht erreichbar.", error);
+    return response.choices[0]?.message?.content || "{}";
   }
 
-  let parsed: z.infer<typeof PlanSchema>;
-  try {
-    parsed = PlanSchema.parse(JSON.parse(raw));
-  } catch (error) {
-    throw new PlannerError("Die KI-Antwort hatte kein gültiges Schema.", error);
+  let parsed: z.infer<typeof PlanSchema> | undefined;
+  let scheduledMeals: z.infer<typeof PlanSchema>["meals"] | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await requestPlan(
+        attempt === 1
+          ? "Der erste Versuch war strukturell ungültig. Liefere exakt einen Eintrag pro angefordertem dayName, keine Duplikate und valides JSON."
+          : undefined,
+      );
+      parsed = PlanSchema.parse(JSON.parse(raw));
+      scheduledMeals = reconcileMealSchedule(parsed.meals, planningDates);
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!parsed || !scheduledMeals) {
+    throw new PlannerError("Die KI-Antwort passte auch nach einem Korrekturversuch nicht zum Wochenplan.", lastError);
   }
 
-  const meals: GeneratedMeal[] = parsed.meals.map((meal) => {
+  const meals: GeneratedMeal[] = scheduledMeals.map((meal) => {
     const unsafe = containsUnsafeDinnerText(`${meal.title} ${meal.reasoning} ${meal.ingredients}`);
     return {
       dayName: meal.dayName,
