@@ -18,6 +18,7 @@ Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 - **Planner-Layout auf Desktop**: Die fünf Aktions-Buttons pro Gericht liefen rechts aus der Karte (abgeschnittenes „Öffnen"). Aktionen wrappen jetzt; auf mittleren Breiten (1025–1460 px) wandern sie unter das Gericht, damit Titel nicht mehr vierzeilig umbrechen.
 
 ### Changed
+- **Schnellere Navigation**: Mobile Tabs reagieren sofort, häufige Ziele werden vorab geladen und Seitenwechsel zeigen einen leichten Skeleton-State. Rezeptlisten laden große Zutaten-/Anweisungsfelder nur noch für sichtbare Karten; Microsoft-To-Do-Listen streamen separat und blockieren die Einkaufsliste nicht mehr. Navigationszähler werden kurz gecacht.
 - **Planner-Warteerlebnis**: Die 1–2-minütige Generierung bleibt jetzt auf der Seite und zeigt eine ruhige, schrittweise Küchen-Story statt nur eines kleinen Pending-Toasts. Fehler erscheinen direkt, der klassische POST bleibt ohne JavaScript als Fallback erhalten.
 - **UI-Polish**: Einkaufspunkte reagieren mit einer animierten Checkmark und sanfterem Done-State; vier deutlichere Rezeptfarben erweitern die bisher stark grün/beige geprägte Palette. `prefers-reduced-motion` gilt weiterhin global.
 - **Offline-Transparenz**: Die Einkaufsliste zeigt Verbindungsstatus und den Stand der geladenen Liste sichtbar an.

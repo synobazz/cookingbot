@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BookIcon, CalendarIcon, CartIcon, HomeIcon, PantryIcon } from "./icons";
 
 // Einstellungen sind mobil über das Zahnrad in der Topbar erreichbar —
@@ -21,15 +22,26 @@ function isActive(pathname: string, href: string) {
 
 export function MobileTabbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+    for (const { href } of items) router.prefetch(href);
+  }, [pathname, router]);
   return (
     <nav className="tabbar" aria-label="Hauptnavigation">
       {items.map(({ href, label, Icon }) => {
-        const active = isActive(pathname, href);
+        const active = isActive(pathname, href) || pendingHref === href;
         return (
           <Link
             key={href}
-            className="tab-btn"
+            className={`tab-btn${pendingHref === href ? " pending" : ""}`}
             href={href}
+            prefetch
+            onClick={() => {
+              if (!isActive(pathname, href)) setPendingHref(href);
+            }}
             aria-current={active ? "page" : undefined}
           >
             <Icon />

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { unstable_cache } from "next/cache";
 import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import { prisma } from "@/lib/db";
@@ -23,6 +24,18 @@ const dmSans = DM_Sans({
   display: "swap",
   variable: "--font-dm-sans",
 });
+
+const loadNavCounts = unstable_cache(
+  async () => {
+    const [recipes, shopping] = await Promise.all([
+      prisma.recipe.count({ where: { inTrash: false } }),
+      prisma.shoppingListItem.count({ where: { checked: false } }),
+    ]);
+    return { recipes, shopping };
+  },
+  ["navigation-counts"],
+  { revalidate: 30 },
+);
 
 export const metadata: Metadata = {
   title: "Cookingbot",
@@ -126,11 +139,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   let counts = { recipes: 0, shopping: 0 };
   if (authed) {
-    const [recipes, shopping] = await Promise.all([
-      prisma.recipe.count({ where: { inTrash: false } }),
-      prisma.shoppingListItem.count({ where: { checked: false } }),
-    ]);
-    counts = { recipes, shopping };
+    counts = await loadNavCounts();
   }
 
   return (

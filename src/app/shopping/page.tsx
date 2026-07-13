@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { prisma } from "@/lib/db";
@@ -17,6 +18,23 @@ type SearchParams = {
   restored?: string;
 };
 
+async function MicrosoftTodoOptions() {
+  try {
+    const todoLists = await listMicrosoftTodoLists();
+    return (
+      <>
+        {todoLists.map((todo) => (
+          <option key={todo.id} value={todo.id}>
+            {todo.displayName}
+          </option>
+        ))}
+      </>
+    );
+  } catch {
+    return <option disabled>Microsoft-Listen konnten nicht geladen werden</option>;
+  }
+}
+
 export default async function ShoppingPage({
   searchParams,
 }: {
@@ -34,17 +52,6 @@ export default async function ShoppingPage({
     getMicrosoftConnection(),
     prisma.appSetting.findUnique({ where: { key: "lastDeletedShoppingList" } }),
   ]);
-
-  let todoLists: { id: string; displayName: string }[] = [];
-  let microsoftError = "";
-  if (microsoftConnection) {
-    try {
-      todoLists = await listMicrosoftTodoLists();
-    } catch (error) {
-      microsoftError =
-        error instanceof Error ? error.message : "Microsoft To Do Listen konnten nicht geladen werden";
-    }
-  }
 
   const requestedListId = params.list;
   const activeList =
@@ -129,12 +136,6 @@ export default async function ShoppingPage({
           Einkaufsliste wiederhergestellt.
         </p>
       ) : null}
-      {microsoftError ? (
-        <p role="alert" style={{ color: "var(--warn)", marginBottom: 18 }}>
-          {microsoftError}
-        </p>
-      ) : null}
-
       <ShoppingBoard list={boardData} microsoftConnected={Boolean(microsoftConnection)} restoreAvailable={Boolean(restoreSetting)} />
 
       {microsoftConnection && activeList ? (
@@ -158,22 +159,15 @@ export default async function ShoppingPage({
                 id="ms-list"
                 className="select"
                 name="microsoftListId"
-                defaultValue={
-                  activeList.microsoftListId ||
-                  todoLists.find((t) => t.displayName.toLowerCase().includes("einkauf"))?.id ||
-                  todoLists[0]?.id ||
-                  ""
-                }
+                defaultValue={activeList.microsoftListId || ""}
                 required
               >
                 <option value="" disabled>
                   Liste auswählen…
                 </option>
-                {todoLists.map((todo) => (
-                  <option key={todo.id} value={todo.id}>
-                    {todo.displayName}
-                  </option>
-                ))}
+                <Suspense fallback={<option disabled>Microsoft-Listen werden geladen…</option>}>
+                  <MicrosoftTodoOptions />
+                </Suspense>
               </select>
             </div>
             <div>

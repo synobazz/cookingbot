@@ -64,10 +64,17 @@ function passesTag(
   return true;
 }
 
-function applySort(
-  list: Awaited<ReturnType<typeof prisma.recipe.findMany>>,
-  sort: string,
-) {
+type RecipeIndexItem = {
+  id: string;
+  name: string;
+  categoriesJson: string;
+  totalTime: string | null;
+  cookTime: string | null;
+  rating: number;
+  lastSyncedAt: Date;
+};
+
+function applySort(list: RecipeIndexItem[], sort: string) {
   const arr = [...list];
   if (sort === "name") arr.sort((a, b) => a.name.localeCompare(b.name, "de"));
   else if (sort === "synced")
@@ -105,12 +112,37 @@ export default async function RecipesPage({
       : {}),
   };
 
-  const all = await prisma.recipe.findMany({ where, take: 600 });
+  // Für Filter/Sortierung nur kleine Metadaten laden. Zutaten, Anweisungen,
+  // Notes und Bildfelder sind groß und werden erst für die 48 sichtbaren
+  // Karten nachgeladen.
+  const [indexItems, totalCount, latestSync] = await Promise.all([
+    prisma.recipe.findMany({
+      where,
+      take: 600,
+      select: {
+        id: true,
+        name: true,
+        categoriesJson: true,
+        totalTime: true,
+        cookTime: true,
+        rating: true,
+        lastSyncedAt: true,
+      },
+    }),
+    prisma.recipe.count({ where }),
+    prisma.recipe.findFirst({ where, orderBy: { lastSyncedAt: "desc" }, select: { lastSyncedAt: true } }),
+  ]);
   const now = new Date();
-  const filtered = all.filter((r) => passesTag(r, tag, now));
+  const filtered = indexItems.filter((r) => passesTag(r, tag, now));
   const sorted = applySort(filtered, sort);
-  const visible = sorted.slice(0, 48);
-  const lastSync = all.reduce<Date | null>((acc, r) => (acc && acc > r.lastSyncedAt ? acc : r.lastSyncedAt), null);
+  const visibleIds = sorted.slice(0, 48).map((recipe) => recipe.id);
+  const visibleRows = await prisma.recipe.findMany({ where: { id: { in: visibleIds } } });
+  const visibleById = new Map(visibleRows.map((recipe) => [recipe.id, recipe]));
+  const visible = visibleIds.flatMap((id) => {
+    const recipe = visibleById.get(id);
+    return recipe ? [recipe] : [];
+  });
+  const lastSync = latestSync?.lastSyncedAt ?? null;
   const syncSummary = params.synced
     ? [
         `${params.synced} aktualisiert`,
@@ -130,7 +162,7 @@ export default async function RecipesPage({
             Rezepte<em>.</em>
           </h1>
           <span className="sub">
-            {all.length} Rezepte
+            {totalCount} Rezepte
             {lastSync ? ` · zuletzt synchronisiert vor ${formatDistanceToNow(lastSync, { locale: de })}` : ""}
           </span>
         </div>

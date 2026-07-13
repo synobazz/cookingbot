@@ -93,6 +93,19 @@ body::before {
     radial-gradient(1100px 600px at 110% -10%, rgba(184, 84, 64, 0.07), transparent 60%),
     radial-gradient(900px 700px at -10% 110%, rgba(31, 58, 46, 0.08), transparent 60%);
 }
+.tab-btn.pending { color: var(--forest); }
+.tab-btn.pending .ico { animation: nav-pulse 0.7s ease-in-out infinite alternate; }
+@keyframes nav-pulse { to { transform: translateY(-2px) scale(1.06); } }
+
+.page-loading { display: grid; gap: 12px; animation: fade 0.14s ease-out; }
+.loading-line, .loading-card { background: linear-gradient(100deg, var(--card-2) 25%, var(--paper-2) 42%, var(--card-2) 60%); background-size: 220% 100%; animation: loading-shimmer 1.15s linear infinite; }
+.loading-line { height: 13px; border-radius: 999px; }
+.loading-line.short { width: 96px; }
+.loading-line.medium { width: min(360px, 72%); }
+.loading-line.title { width: min(520px, 92%); height: 42px; margin: 2px 0 8px; }
+.loading-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
+.loading-card { min-height: 180px; border: 1px solid var(--line); border-radius: 18px; }
+@keyframes loading-shimmer { to { background-position-x: -220%; } }
 .grain {
   position: fixed;
   inset: 0;
