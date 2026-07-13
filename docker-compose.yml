@@ -4,10 +4,10 @@ services:
     container_name: cookingbot
     restart: unless-stopped
     ports:
-      # An localhost binden: Zugriff nur über den Reverse Proxy auf demselben Host.
-      # Wenn der Proxy auf einem anderen Gerät läuft, stattdessen "3000:3000" verwenden
-      # und den Zugriff per Firewall auf die Proxy-IP einschränken.
-      - "127.0.0.1:3000:3000"
+      # cloudflared läuft auf der NAS in einem separaten Container und muss
+      # den veröffentlichten Host-Port erreichen können. Eine Bindung an
+      # 127.0.0.1 würde aus dem Tunnel-Container zu HTTP 502 führen.
+      - "3000:3000"
     security_opt:
       - no-new-privileges:true
     cap_drop:
